@@ -11,7 +11,7 @@ export interface FoodProduct {
 
 const OFF_BASE = 'https://world.openfoodfacts.net';
 const OFF_HEADERS = {
-  'User-Agent': process.env.OFF_USER_AGENT || 'MealBudget/1.0',
+  'User-Agent': 'MealBudget/1.0 (lucyscanlon)',
 };
 const USDA_BASE = 'https://api.nal.usda.gov/fdc/v1';
 const USDA_API_KEY = 'DEMO_KEY';
