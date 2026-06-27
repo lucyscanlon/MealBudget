@@ -1,0 +1,2 @@
+ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS group_name VARCHAR(255);
+ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS group_cooked_weight NUMERIC;
