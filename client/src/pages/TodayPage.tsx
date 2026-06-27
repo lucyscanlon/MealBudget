@@ -27,8 +27,8 @@ export default function TodayPage() {
     api.get<DayMenu>('/api/daily/today').then(setMenu);
   }, []);
 
-  const mobileUrl = `http://${window.location.hostname}:3001/api/daily/today/mobile`;
-  const widgetUrl = `http://${window.location.hostname}:3001/api/widget/scriptable`;
+  const mobileUrl = `${window.location.origin}/api/daily/today/mobile`;
+  const widgetUrl = `${window.location.origin}/api/widget/scriptable`;
 
   if (!menu) return <p style={{ padding: 40, color: 'var(--text-light)' }}>Loading...</p>;
 

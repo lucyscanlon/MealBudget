@@ -3,8 +3,9 @@ import { Router } from 'express';
 const router = Router();
 
 router.get('/scriptable', (_req, res) => {
-  const serverIp = _req.hostname === 'localhost' ? '192.168.1.219' : _req.hostname;
-  const serverUrl = `http://${serverIp}:3001`;
+  const proto = _req.headers['x-forwarded-proto'] || _req.protocol;
+  const host = _req.headers['x-forwarded-host'] || _req.headers.host || _req.hostname;
+  const serverUrl = `${proto}://${host}`;
 
   const script = `const SERVER = "${serverUrl}";
 

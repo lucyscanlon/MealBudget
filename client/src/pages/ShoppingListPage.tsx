@@ -45,7 +45,7 @@ export default function ShoppingListPage() {
   };
 
   const [showQR, setShowQR] = useState(false);
-  const mobileUrl = `http://${window.location.hostname}:3001/api/shopping/${weekStart}/mobile`;
+  const mobileUrl = `${window.location.origin}/api/shopping/${weekStart}/mobile`;
 
   const uncheckedItems = items.filter((i) => !checked.has(i.name));
   const checkedItems = items.filter((i) => checked.has(i.name));
