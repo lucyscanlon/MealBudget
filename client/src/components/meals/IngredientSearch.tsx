@@ -4,6 +4,7 @@ import { api } from '../../utils/api';
 interface FoodProduct {
   name: string;
   brand: string;
+  imageUrl: string | null;
   caloriesPer100g: number;
   proteinPer100g: number;
   carbsPer100g: number;
@@ -69,11 +70,18 @@ export default function IngredientSearch({ onSelect, onSwitchToManual }: Props) 
                 width: '100%', textAlign: 'left', padding: '8px 10px',
                 background: i % 2 === 0 ? 'var(--bg)' : 'var(--secondary-bg)',
                 borderBottom: '1px solid var(--border)', borderRadius: 0,
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                display: 'flex', alignItems: 'center', gap: 10,
                 fontSize: 13,
               }}
             >
-              <span>
+              {product.imageUrl ? (
+                <img src={product.imageUrl} alt="" style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+              ) : (
+                <div style={{ width: 36, height: 36, borderRadius: 6, background: 'var(--secondary-bg)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <i className="ti ti-package" style={{ fontSize: 16, color: 'var(--text-light)' }} />
+                </div>
+              )}
+              <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ fontWeight: 500 }}>{product.name}</span>
                 {product.brand && <span style={{ color: 'var(--text-light)' }}> · {product.brand}</span>}
               </span>
