@@ -315,6 +315,9 @@ export default function Home() {
 
       {/* Trends insights */}
       {hasSetup && <TrendsPanel />}
+
+      {/* Weight log management */}
+      {hasSetup && <WeightLogManager onChanged={() => { loadProfile(); loadProjection(); }} />}
     </div>
   );
 }
@@ -467,6 +470,64 @@ function TrendCard({ label, value, sub }: { label: string; value: string; sub: s
       <div style={{ fontSize: 11, color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: 4 }}>{label}</div>
       <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--forest)' }}>{value}</div>
       <div style={{ fontSize: 11, color: 'var(--text-light)' }}>{sub}</div>
+    </div>
+  );
+}
+
+function WeightLogManager({ onChanged }: { onChanged: () => void }) {
+  const [logs, setLogs] = useState<{ id: number; weightLbs: number; date: string }[]>([]);
+  const [expanded, setExpanded] = useState(false);
+
+  const loadLogs = () => {
+    api.get<{ id: number; weightLbs: number; date: string }[]>('/api/weight').then(setLogs);
+  };
+
+  useEffect(() => { loadLogs(); }, []);
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Delete this weight log?')) return;
+    await api.del(`/api/weight/${id}`);
+    loadLogs();
+    onChanged();
+  };
+
+  if (logs.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        style={{ fontSize: 13, color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: 6 }}
+      >
+        <i className="ti ti-history" style={{ fontSize: 16 }} />
+        {expanded ? 'Hide weight history' : 'Weight history'} ({logs.length} entries)
+      </button>
+      {expanded && (
+        <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginTop: 10, background: 'var(--card)' }}>
+          {logs.map((log, i) => {
+            const s = Math.floor(log.weightLbs / 14);
+            const p = Math.round((log.weightLbs % 14) * 10) / 10;
+            return (
+              <div key={log.id} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '8px 14px', borderBottom: i < logs.length - 1 ? '1px solid var(--border)' : 'none',
+                fontSize: 13,
+              }}>
+                <span style={{ color: 'var(--text-light)' }}>
+                  {new Date(log.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+                <span style={{ fontWeight: 600 }}>{s}st {p}lb</span>
+                <button
+                  onClick={() => handleDelete(log.id)}
+                  style={{ color: 'var(--coral)', fontSize: 14, padding: '2px 6px' }}
+                >
+                  <i className="ti ti-trash" style={{ fontSize: 14 }} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -18,6 +18,12 @@ router.get('/', async (_req, res) => {
   })));
 });
 
+// Delete a weight log
+router.delete('/:id', async (req, res) => {
+  await pool.query('DELETE FROM weight_logs WHERE id = $1 AND user_id = $2', [req.params.id, USER_ID]);
+  res.json({ success: true });
+});
+
 // Log a weekly weigh-in
 router.post('/', async (req, res) => {
   const { weightLbs, date } = req.body;
