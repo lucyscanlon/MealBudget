@@ -77,6 +77,15 @@ router.post('/', async (req, res) => {
 
     for (const ing of ingredients) {
       await client.query(ING_INSERT, ingParams(mealId, ing));
+      // Auto-save to custom products database
+      if (ing.caloriesPer100g) {
+        await client.query(
+          `INSERT INTO custom_products (user_id, name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, barcode)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT DO NOTHING`,
+          [USER_ID, ing.name, ing.caloriesPer100g, ing.proteinPer100g || 0, ing.carbsPer100g || 0, ing.fatPer100g || 0, ing.barcode || null]
+        ).catch(() => {});
+      }
     }
     await client.query('COMMIT');
 

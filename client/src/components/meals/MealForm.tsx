@@ -38,7 +38,9 @@ export default function MealForm({ onSaved, onCancel, editMeal }: Props) {
   const [recipeNotes, setRecipeNotes] = useState(editMeal?.recipeNotes || '');
   const [showRecipe, setShowRecipe] = useState(!!(editMeal?.recipeUrl || editMeal?.recipeNotes));
   const [ingredients, setIngredients] = useState<IngredientInput[]>([]);
-  const [addingMode, setAddingMode] = useState<'search' | 'manual' | 'barcode' | 'tesco' | null>(null);
+  const [addingMode, setAddingMode] = useState<'search' | 'manual' | 'barcode' | 'tesco' | 'paste' | null>(null);
+  const [pasteText, setPasteText] = useState('');
+  const [pasteName, setPasteName] = useState('');
   const [tescoUrl, setTescoUrl] = useState('');
   const [tescoLoading, setTescoLoading] = useState(false);
 
@@ -238,6 +240,12 @@ export default function MealForm({ onSaved, onCancel, editMeal }: Props) {
             + Search
           </button>
           <button
+            onClick={() => setAddingMode('paste')}
+            style={{ flex: 1, border: '2px solid var(--border)', padding: '8px 0', fontSize: 13, color: 'var(--text-light)' }}
+          >
+            Paste nutrition
+          </button>
+          <button
             onClick={() => setAddingMode('tesco')}
             style={{ flex: 1, border: '2px solid var(--border)', padding: '8px 0', fontSize: 13, color: 'var(--text-light)' }}
           >
@@ -319,6 +327,59 @@ export default function MealForm({ onSaved, onCancel, editMeal }: Props) {
           onScan={(barcode) => { handleBarcodeScan(barcode); setAddingMode(null); }}
           onClose={() => setAddingMode(null)}
         />
+      )}
+
+      {addingMode === 'paste' && (
+        <div style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 12, marginTop: 8, marginBottom: 20 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Paste nutrition info</div>
+          <p style={{ fontSize: 12, color: 'var(--text-light)', marginBottom: 8 }}>
+            Copy the nutrition table from a product page (Tesco, Sainsbury's, etc) and paste it below. We'll parse the per 100g values.
+          </p>
+          <input
+            placeholder="Product name"
+            value={pasteName}
+            onChange={(e) => setPasteName(e.target.value)}
+            style={{ width: '100%', marginBottom: 8 }}
+          />
+          <textarea
+            placeholder={"Paste nutrition info here, e.g.:\nEnergy 128kcal\nFat 4.1g\nCarbohydrate 15.2g\nProtein 6.0g"}
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            rows={5}
+            style={{
+              width: '100%', border: '1.5px solid var(--border)', borderRadius: 8,
+              padding: '8px 12px', fontSize: 13, fontFamily: 'var(--font)',
+              outline: 'none', resize: 'vertical', background: '#fff', color: 'var(--text)',
+            }}
+          />
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
+            <button onClick={() => { setAddingMode(null); setPasteText(''); setPasteName(''); }} style={{ color: 'var(--text-light)', fontSize: 12 }}>Cancel</button>
+            <button
+              onClick={() => {
+                if (!pasteName.trim()) return alert('Enter a product name');
+                if (!pasteText.trim()) return alert('Paste the nutrition info');
+                const parsed = parseNutrition(pasteText);
+                if (parsed.caloriesPer100g === 0 && parsed.proteinPer100g === 0) {
+                  return alert('Could not find nutrition values. Make sure you include per 100g values.');
+                }
+                addResolvedIngredient({
+                  name: pasteName.trim(),
+                  weightGrams: 100,
+                  ...parsed,
+                  barcode: null,
+                  resolved: true,
+                  groupName: null,
+                  groupCookedWeight: null,
+                });
+                setPasteText('');
+                setPasteName('');
+              }}
+              style={{ background: 'var(--primary)', color: '#D8F3DC', fontSize: 12, padding: '6px 14px' }}
+            >
+              Add
+            </button>
+          </div>
+        </div>
       )}
 
       {addingMode === 'tesco' && (
@@ -418,6 +479,35 @@ export default function MealForm({ onSaved, onCancel, editMeal }: Props) {
       </div>
     </div>
   );
+}
+
+function parseNutrition(text: string): { caloriesPer100g: number; proteinPer100g: number; carbsPer100g: number; fatPer100g: number } {
+  const t = text.toLowerCase();
+  const findValue = (patterns: RegExp[]): number => {
+    for (const p of patterns) {
+      const m = t.match(p);
+      if (m) return parseFloat(m[1]);
+    }
+    return 0;
+  };
+
+  return {
+    caloriesPer100g: findValue([
+      /(\d+)\s*kcal/,
+      /energy[:\s]*(\d+)/,
+      /calories[:\s]*(\d+)/,
+    ]),
+    proteinPer100g: findValue([
+      /protein[:\s]*([\d.]+)\s*g/,
+    ]),
+    carbsPer100g: findValue([
+      /carbohydrate[s]?[:\s]*([\d.]+)\s*g/,
+      /carbs[:\s]*([\d.]+)\s*g/,
+    ]),
+    fatPer100g: findValue([
+      /(?:total\s+)?fat[:\s]*([\d.]+)\s*g/,
+    ]),
+  };
 }
 
 function IngredientRow({ ing, index, setIngredients }: {
