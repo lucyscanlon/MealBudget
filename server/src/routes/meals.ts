@@ -1,23 +1,11 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
 import pool from '../db.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const router = Router();
 const USER_ID = 1;
 
-const storage = multer.diskStorage({
-  destination: join(__dirname, '../../uploads'),
-  filename: (_req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = file.originalname.split('.').pop();
-    cb(null, `${unique}.${ext}`);
-  },
-});
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const ING_SELECT = 'id, meal_id, name, weight_grams, barcode, group_name, group_cooked_weight';
 const ING_INSERT = `INSERT INTO ingredients (meal_id, name, weight_grams, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, barcode, group_name, group_cooked_weight)
@@ -40,7 +28,7 @@ function ingParams(mealId: number | string, ing: any) {
 
 router.get('/', async (_req, res) => {
   const meals = await pool.query(
-    'SELECT id, name, photo_url, tags, is_favourite FROM meals WHERE user_id = $1 ORDER BY is_favourite DESC, created_at DESC',
+    'SELECT id, name, photo_url, photo_data, tags, is_favourite FROM meals WHERE user_id = $1 ORDER BY is_favourite DESC, created_at DESC',
     [USER_ID]
   );
 
@@ -62,7 +50,7 @@ router.get('/', async (_req, res) => {
     meals.rows.map((m) => ({
       id: m.id,
       name: m.name,
-      photoUrl: m.photo_url,
+      photoUrl: m.photo_data || m.photo_url,
       tags: m.tags || [],
       isFavourite: m.is_favourite || false,
       ingredients: ingredientsByMeal[m.id] || [],
@@ -168,9 +156,9 @@ router.delete('/:id', async (req, res) => {
 
 router.post('/:id/photo', upload.single('photo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-  const photoUrl = `/uploads/${req.file.filename}`;
-  await pool.query('UPDATE meals SET photo_url = $1 WHERE id = $2 AND user_id = $3', [photoUrl, req.params.id, USER_ID]);
-  res.json({ photoUrl });
+  const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+  await pool.query('UPDATE meals SET photo_data = $1 WHERE id = $2 AND user_id = $3', [base64, req.params.id, USER_ID]);
+  res.json({ photoUrl: base64 });
 });
 
 export default router;

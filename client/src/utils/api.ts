@@ -23,4 +23,8 @@ export const api = {
   },
 };
 
-export const uploadsUrl = (path: string | null) => path ? `${BASE}${path}` : null;
+export const uploadsUrl = (path: string | null) => {
+  if (!path) return null;
+  if (path.startsWith('data:')) return path;
+  return `${BASE}${path}`;
+};
