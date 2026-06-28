@@ -54,8 +54,9 @@ export interface WeekPlan {
 export interface AdjustResult {
   entryId: number;
   newPortionScale: number;
-  adjustedIngredients: { name: string; originalGrams: number; newGrams: number; groupName: string | null }[];
+  adjustedIngredients: { name: string; originalGrams: number; newGrams: number; groupName: string | null; caloriesPer100g: number }[];
   adjustedGroups: { name: string; originalGrams: number; newGrams: number }[];
+  totalCaloriesToCut: number;
   tooSmall: boolean;
 }
 

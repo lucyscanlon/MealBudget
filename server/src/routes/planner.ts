@@ -139,6 +139,37 @@ router.post('/adjust', async (req, res) => {
   res.json(result);
 });
 
+router.post('/adjust/custom', async (req, res) => {
+  const { targetEntryId, customWeights } = req.body;
+  // customWeights: { name: string, newGrams: number }[]
+  // Recalculate portion_scale based on custom weights
+  const entry = await pool.query('SELECT meal_id, portion_scale FROM plan_entries WHERE id = $1', [targetEntryId]);
+  if (entry.rows.length === 0) return res.status(404).json({ error: 'Entry not found' });
+
+  const ingredients = await pool.query(
+    'SELECT name, weight_grams FROM ingredients WHERE meal_id = $1',
+    [entry.rows[0].meal_id]
+  );
+
+  // Find the max scale across all custom weights to use as portion_scale
+  // (individual ingredient weights are stored as base * portion_scale, so we need a single scale)
+  // Instead, we'll use a scale of 1 and store absolute weights by adjusting base weights
+  // Actually simpler: just keep portion_scale and note that the display uses custom weights
+  // For now, save the overall portion_scale as the average ratio
+  let totalRatio = 0;
+  let count = 0;
+  for (const cw of customWeights) {
+    const orig = ingredients.rows.find((i: any) => i.name === cw.name);
+    if (orig) {
+      totalRatio += cw.newGrams / Number(orig.weight_grams);
+      count++;
+    }
+  }
+  const avgScale = count > 0 ? totalRatio / count : 1;
+  await pool.query('UPDATE plan_entries SET portion_scale = $1 WHERE id = $2', [avgScale, targetEntryId]);
+  res.json({ success: true, portionScale: avgScale });
+});
+
 router.get('/:weekStart/:day/macros', async (req, res) => {
   const { weekStart, day } = req.params;
   const dayOfWeek = Number(day);

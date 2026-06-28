@@ -45,7 +45,7 @@ export async function adjustMealPortion(
   }, 0);
 
   if (baseCalories === 0) {
-    return { entryId: targetEntryId, newPortionScale: 1, adjustedIngredients: [], adjustedGroups: [], tooSmall: false };
+    return { entryId: targetEntryId, newPortionScale: 1, adjustedIngredients: [], adjustedGroups: [], totalCaloriesToCut: 0, tooSmall: false };
   }
 
   const available = budget - otherCalories;
@@ -54,11 +54,14 @@ export async function adjustMealPortion(
 
   await pool.query('UPDATE plan_entries SET portion_scale = $1 WHERE id = $2', [newScale, targetEntryId]);
 
+  const totalCaloriesToCut = Math.round((baseCalories * Number(targetEntry.portion_scale)) - (baseCalories * newScale));
+
   const adjustedIngredients = targetIngredients.rows.map((ing: any) => ({
     name: ing.name,
     originalGrams: Math.round(Number(ing.weight_grams) * Number(targetEntry!.portion_scale)),
     newGrams: Math.round(Number(ing.weight_grams) * newScale),
     groupName: ing.group_name || null,
+    caloriesPer100g: Number(ing.calories_per_100g),
   }));
 
   // Build adjusted groups — show cooked weight changes
@@ -77,5 +80,5 @@ export async function adjustMealPortion(
     newGrams: Math.round(g.cookedWeight * newScale),
   }));
 
-  return { entryId: targetEntryId, newPortionScale: newScale, adjustedIngredients, adjustedGroups, tooSmall };
+  return { entryId: targetEntryId, newPortionScale: newScale, adjustedIngredients, adjustedGroups, totalCaloriesToCut, tooSmall };
 }
