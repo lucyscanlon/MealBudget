@@ -50,6 +50,13 @@ function EntryCard({ entry, onRemove }: { entry: PlanEntry; onRemove: (id: numbe
         onClick={() => setExpanded(!expanded)}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {entry.meal.photoUrl ? (
+            <img src={entry.meal.photoUrl} alt="" style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} />
+          ) : (
+            <div style={{ width: 24, height: 24, borderRadius: 4, background: 'var(--secondary-bg)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <i className="ti ti-bowl" style={{ fontSize: 12, color: 'var(--text-light)' }} />
+            </div>
+          )}
           <span style={{ fontWeight: 500 }}>{entry.meal.name}</span>
           {isReduced && (
             <span style={{

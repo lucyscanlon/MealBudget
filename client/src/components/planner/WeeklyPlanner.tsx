@@ -244,11 +244,22 @@ function DraggableMeal({ meal }: { meal: Meal }) {
         touchAction: 'none', fontSize: 13,
       }}
     >
-      <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
-        {meal.isFavourite && <span style={{ color: 'var(--coral)', fontSize: 11 }}>♥</span>}
-        {meal.name}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {meal.photoUrl ? (
+          <img src={meal.photoUrl} alt="" style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+        ) : (
+          <div style={{ width: 32, height: 32, borderRadius: 6, background: 'var(--secondary-bg)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: 'var(--text-light)' }}>
+            <i className="ti ti-bowl" style={{ fontSize: 14 }} />
+          </div>
+        )}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
+            {meal.isFavourite && <span style={{ color: 'var(--coral)', fontSize: 11 }}>♥</span>}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meal.name}</span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-light)' }}>{meal.ingredients.length} items</div>
+        </div>
       </div>
-      <div style={{ fontSize: 11, color: 'var(--text-light)' }}>{meal.ingredients.length} items</div>
     </div>
   );
 }

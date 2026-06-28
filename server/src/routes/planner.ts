@@ -18,7 +18,7 @@ router.get('/:weekStart', async (req, res) => {
 
   const entries = await pool.query(
     `SELECT pe.id, pe.meal_id, pe.day_of_week, pe.slot, pe.portion_scale, pe.sort_order,
-            m.name as meal_name, m.photo_url
+            m.name as meal_name, COALESCE(m.photo_data, m.photo_url) as photo
      FROM plan_entries pe
      JOIN meals m ON m.id = pe.meal_id
      WHERE pe.plan_id = $1
@@ -56,7 +56,7 @@ router.get('/:weekStart', async (req, res) => {
         meal: {
           id: e.meal_id,
           name: e.meal_name,
-          photoUrl: e.photo_url,
+          photoUrl: e.photo || null,
           ingredients: (ingredientsByMeal[e.meal_id] || []).map((ing: any) => ({
             ...ing,
             weightGrams: Math.round(ing.weightGrams * Number(e.portion_scale)),
