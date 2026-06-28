@@ -6,6 +6,7 @@ const links = [
   { to: '/planner', label: 'Planner', icon: 'ti-calendar' },
   { to: '/today', label: 'Today', icon: 'ti-sun' },
   { to: '/shopping', label: 'Shopping', icon: 'ti-shopping-cart' },
+  { to: '/reflect', label: 'Reflect', icon: 'ti-notebook' },
 ];
 
 export default function Navbar() {

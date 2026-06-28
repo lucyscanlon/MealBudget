@@ -5,6 +5,7 @@ import MealLibraryPage from './pages/MealLibraryPage';
 import PlannerPage from './pages/PlannerPage';
 import ShoppingListPage from './pages/ShoppingListPage';
 import TodayPage from './pages/TodayPage';
+import ReflectionPage from './pages/ReflectionPage';
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
             <Route path="/planner" element={<PlannerPage />} />
             <Route path="/shopping" element={<ShoppingListPage />} />
             <Route path="/today" element={<TodayPage />} />
+            <Route path="/reflect" element={<ReflectionPage />} />
           </Routes>
         </main>
       </div>
