@@ -62,9 +62,24 @@ export default function WeeklyPlanner() {
       setExpandedMacros((prev) => ({ ...prev, [day]: false }));
       return;
     }
+    setExpandedCalories((prev) => ({ ...prev, [day]: false }));
     const data = await api.get<MacroBreakdown>(`/api/planner/${weekStart}/${day}/macros`);
     setMacros((prev) => ({ ...prev, [day]: data }));
     setExpandedMacros((prev) => ({ ...prev, [day]: true }));
+  };
+
+  const [calories, setCalories] = useState<Record<number, number>>({});
+  const [expandedCalories, setExpandedCalories] = useState<Record<number, boolean>>({});
+
+  const toggleCalories = async (day: number) => {
+    if (expandedCalories[day]) {
+      setExpandedCalories((prev) => ({ ...prev, [day]: false }));
+      return;
+    }
+    setExpandedMacros((prev) => ({ ...prev, [day]: false }));
+    const data = await api.get<{ totalCalories: number }>(`/api/planner/${weekStart}/${day}/calories`);
+    setCalories((prev) => ({ ...prev, [day]: data.totalCalories }));
+    setExpandedCalories((prev) => ({ ...prev, [day]: true }));
   };
 
   const adjustDayData = adjustDay !== null ? plan?.days.find((d) => d.dayOfWeek === adjustDay) : null;
@@ -166,8 +181,14 @@ export default function WeeklyPlanner() {
                         </button>
                       )}
                       <button
+                        onClick={() => toggleCalories(day.dayOfWeek)}
+                        style={{ color: expandedCalories[day.dayOfWeek] ? 'var(--lemon-text)' : 'var(--text-light)', fontSize: 12, padding: '2px 8px' }}
+                      >
+                        {expandedCalories[day.dayOfWeek] ? 'Hide' : 'Cals'}
+                      </button>
+                      <button
                         onClick={() => toggleMacros(day.dayOfWeek)}
-                        style={{ color: 'var(--text-light)', fontSize: 12, padding: '2px 8px' }}
+                        style={{ color: expandedMacros[day.dayOfWeek] ? 'var(--sage)' : 'var(--text-light)', fontSize: 12, padding: '2px 8px' }}
                       >
                         {expandedMacros[day.dayOfWeek] ? 'Hide' : 'Macros'}
                       </button>
@@ -192,14 +213,27 @@ export default function WeeklyPlanner() {
                     </div>
                   )}
 
+                  {/* Calories */}
+                  {expandedCalories[day.dayOfWeek] && calories[day.dayOfWeek] !== undefined && (
+                    <div style={{
+                      fontSize: 13, fontWeight: 600, color: 'var(--lemon-text)',
+                      background: 'var(--lemon)', borderRadius: 8, padding: '6px 10px',
+                      marginBottom: 10, textAlign: 'center',
+                    }}>
+                      {calories[day.dayOfWeek]} kcal
+                    </div>
+                  )}
+
                   {/* Macros */}
                   {expandedMacros[day.dayOfWeek] && macros[day.dayOfWeek] && (
                     <div style={{
-                      fontSize: 12, display: 'flex', gap: 12, marginBottom: 10, color: 'var(--text-light)',
+                      fontSize: 12, display: 'flex', gap: 8, marginBottom: 10,
+                      background: 'var(--foam)', borderRadius: 8, padding: '6px 10px',
+                      justifyContent: 'center',
                     }}>
-                      <span>Protein {macros[day.dayOfWeek].proteinGrams}g</span>
-                      <span>Carbs {macros[day.dayOfWeek].carbsGrams}g</span>
-                      <span>Fat {macros[day.dayOfWeek].fatGrams}g</span>
+                      <span style={{ color: 'var(--sage)' }}>P {macros[day.dayOfWeek].proteinGrams}g</span>
+                      <span style={{ color: 'var(--sage)' }}>C {macros[day.dayOfWeek].carbsGrams}g</span>
+                      <span style={{ color: 'var(--sage)' }}>F {macros[day.dayOfWeek].fatGrams}g</span>
                     </div>
                   )}
 

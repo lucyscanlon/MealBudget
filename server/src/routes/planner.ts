@@ -196,4 +196,15 @@ router.get('/:weekStart/:day/macros', async (req, res) => {
   res.json({ proteinGrams: Math.round(protein), carbsGrams: Math.round(carbs), fatGrams: Math.round(fat) });
 });
 
+router.get('/:weekStart/:day/calories', async (req, res) => {
+  const { weekStart, day } = req.params;
+  const dayOfWeek = Number(day);
+
+  const plan = await pool.query('SELECT id FROM weekly_plans WHERE user_id = $1 AND week_start = $2', [USER_ID, weekStart]);
+  if (plan.rows.length === 0) return res.json({ totalCalories: 0 });
+
+  const totalCalories = Math.round(await getDayCalories(plan.rows[0].id, dayOfWeek));
+  res.json({ totalCalories });
+});
+
 export default router;
