@@ -27,8 +27,9 @@ export async function getBudget(): Promise<number> {
   return result.rows[0]?.daily_calorie_budget || 2000;
 }
 
-export function calcStatus(ratio: number): BudgetStatus {
-  if (ratio <= 0.8) return 'green';
-  if (ratio <= 1.0) return 'amber';
+export function calcStatus(totalCalories: number, budget: number): BudgetStatus {
+  const over = totalCalories - budget;
+  if (over <= 0) return 'green';
+  if (over <= 80) return 'amber';
   return 'red';
 }

@@ -75,7 +75,7 @@ router.get('/:weekStart', async (req, res) => {
       dayOfWeek: d,
       entries: dayEntries,
       budgetRatio: Math.round(ratio * 100) / 100,
-      status: calcStatus(ratio),
+      status: calcStatus(totalCals, budget),
     });
   }
 

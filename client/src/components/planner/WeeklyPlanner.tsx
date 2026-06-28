@@ -141,7 +141,7 @@ export default function WeeklyPlanner() {
           <div className="planner-grid">
             {plan?.days.map((day) => {
               const isEmpty = day.entries.length === 0;
-              const borderColor = isEmpty ? 'var(--border)' : day.status === 'red' ? 'var(--red)' : 'var(--green)';
+              const borderColor = isEmpty ? 'var(--border)' : day.status === 'red' ? 'var(--red)' : day.status === 'amber' ? '#F59E0B' : 'var(--green)';
               return (
                 <div key={day.dayOfWeek} style={{
                   border: `1px solid ${borderColor}`,
@@ -157,10 +157,10 @@ export default function WeeklyPlanner() {
                   }}>
                     <span style={{ fontWeight: 600, fontSize: 15 }}>{DAY_NAMES[day.dayOfWeek]}</span>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      {day.status === 'red' && (
+                      {(day.status === 'red' || day.status === 'amber') && (
                         <button
                           onClick={() => setAdjustDay(day.dayOfWeek)}
-                          style={{ color: 'var(--red)', fontSize: 12, fontWeight: 500, padding: '2px 8px' }}
+                          style={{ color: day.status === 'red' ? 'var(--red)' : '#F59E0B', fontSize: 12, fontWeight: 500, padding: '2px 8px' }}
                         >
                           Adjust
                         </button>
@@ -175,6 +175,14 @@ export default function WeeklyPlanner() {
                   </div>
 
                   {/* Over budget notice */}
+                  {day.status === 'amber' && (
+                    <div style={{
+                      fontSize: 12, color: '#F59E0B', fontWeight: 500,
+                      marginBottom: 10, padding: '4px 0',
+                    }}>
+                      Slightly over budget
+                    </div>
+                  )}
                   {day.status === 'red' && (
                     <div style={{
                       fontSize: 12, color: 'var(--red)', fontWeight: 500,
