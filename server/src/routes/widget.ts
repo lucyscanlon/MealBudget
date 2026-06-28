@@ -8,13 +8,34 @@ router.get('/scriptable', (_req, res) => {
   const serverUrl = `${proto}://${host}`;
 
   const script = `const SERVER = "${serverUrl}";
+const CACHE_KEY = "mealbudget_menu";
+const fm = FileManager.local();
+const cachePath = fm.joinPath(fm.documentsDirectory(), CACHE_KEY + ".json");
+
+function saveCache(data) {
+  const payload = { date: new Date().toISOString().split("T")[0], data };
+  fm.writeString(cachePath, JSON.stringify(payload));
+}
+
+function loadCache() {
+  try {
+    if (!fm.fileExists(cachePath)) return null;
+    const raw = JSON.parse(fm.readString(cachePath));
+    if (raw.date === new Date().toISOString().split("T")[0]) return raw.data;
+    return null;
+  } catch { return null; }
+}
 
 async function fetchMenu() {
+  const cached = loadCache();
   const req = new Request(SERVER + "/api/daily/today");
+  req.timeoutInterval = 10;
   try {
-    return await req.loadJSON();
+    const data = await req.loadJSON();
+    saveCache(data);
+    return data;
   } catch {
-    return null;
+    return cached;
   }
 }
 
