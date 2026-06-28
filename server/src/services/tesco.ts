@@ -22,8 +22,22 @@ export async function lookupTescoUrl(url: string): Promise<TescoProduct | null> 
 
     const html = await res.text();
 
-    const titleMatch = html.match(/"title":"([^"]+)"/);
-    const name = titleMatch ? titleMatch[1] : 'Unknown product';
+    if (html.includes('Access Denied') || html.length < 1000) return null;
+
+    // Extract product ID from URL to find the specific title
+    const tpncMatch = url.match(/products\/(\d+)/);
+    const tpnc = tpncMatch ? tpncMatch[1] : '';
+
+    // Try tpnc-specific title first, then generic
+    let name = 'Unknown product';
+    if (tpnc) {
+      const specificMatch = html.match(new RegExp(`"tpnc":"${tpnc}","title":"([^"]+)"`));
+      if (specificMatch) name = specificMatch[1];
+    }
+    if (name === 'Unknown product') {
+      const titleMatch = html.match(/"title":"([^"]{3,100})"/);
+      if (titleMatch) name = titleMatch[1];
+    }
 
     const gtinMatch = html.match(/"gtin13":"(\d+)"/) || html.match(/"gtin":"(\d+)"/);
     const barcode = gtinMatch ? gtinMatch[1] : '';
