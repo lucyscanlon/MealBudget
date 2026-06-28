@@ -77,6 +77,26 @@ export default function MealCard({ meal, onDelete, onEdit, onToggleFavourite, on
             </span>
           ))}
         </div>
+        {(meal.recipeUrl || meal.recipeNotes) && (
+          <div style={{ marginBottom: 10 }}>
+            {meal.recipeUrl && (
+              <a
+                href={meal.recipeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: 12, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none', marginBottom: 4 }}
+              >
+                <i className="ti ti-external-link" style={{ fontSize: 14 }} />
+                View recipe
+              </a>
+            )}
+            {meal.recipeNotes && (
+              <p style={{ fontSize: 12, color: 'var(--text-light)', lineHeight: 1.4, whiteSpace: 'pre-wrap' }}>
+                {meal.recipeNotes.length > 80 ? meal.recipeNotes.slice(0, 80) + '...' : meal.recipeNotes}
+              </p>
+            )}
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 6, fontSize: 13 }}>
           <button
             onClick={() => onEdit(meal)}

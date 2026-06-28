@@ -28,7 +28,7 @@ function ingParams(mealId: number | string, ing: any) {
 
 router.get('/', async (_req, res) => {
   const meals = await pool.query(
-    'SELECT id, name, photo_url, photo_data, tags, is_favourite FROM meals WHERE user_id = $1 ORDER BY is_favourite DESC, created_at DESC',
+    'SELECT id, name, photo_url, photo_data, tags, is_favourite, recipe_url, recipe_notes FROM meals WHERE user_id = $1 ORDER BY is_favourite DESC, created_at DESC',
     [USER_ID]
   );
 
@@ -53,13 +53,15 @@ router.get('/', async (_req, res) => {
       photoUrl: m.photo_data || m.photo_url,
       tags: m.tags || [],
       isFavourite: m.is_favourite || false,
+      recipeUrl: m.recipe_url || null,
+      recipeNotes: m.recipe_notes || null,
       ingredients: ingredientsByMeal[m.id] || [],
     }))
   );
 });
 
 router.post('/', async (req, res) => {
-  const { name, ingredients, tags } = req.body;
+  const { name, ingredients, tags, recipeUrl, recipeNotes } = req.body;
   if (!name || !ingredients || !Array.isArray(ingredients)) {
     return res.status(400).json({ error: 'Name and ingredients required' });
   }
@@ -68,8 +70,8 @@ router.post('/', async (req, res) => {
   try {
     await client.query('BEGIN');
     const mealResult = await client.query(
-      'INSERT INTO meals (user_id, name, tags) VALUES ($1, $2, $3) RETURNING id',
-      [USER_ID, name, tags || []]
+      'INSERT INTO meals (user_id, name, tags, recipe_url, recipe_notes) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [USER_ID, name, tags || [], recipeUrl || null, recipeNotes || null]
     );
     const mealId = mealResult.rows[0].id;
 
@@ -79,7 +81,7 @@ router.post('/', async (req, res) => {
     await client.query('COMMIT');
 
     res.status(201).json({
-      id: mealId, name, photoUrl: null, tags: tags || [], isFavourite: false,
+      id: mealId, name, photoUrl: null, tags: tags || [], isFavourite: false, recipeUrl: recipeUrl || null, recipeNotes: recipeNotes || null,
       ingredients: ingredients.map((ing: any, i: number) => ({
         id: i, name: ing.name, weightGrams: ing.weightGrams, barcode: ing.barcode,
         groupName: ing.groupName || null, groupCookedWeight: ing.groupCookedWeight || null,
@@ -113,7 +115,7 @@ router.get('/:id/ingredients', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, ingredients, tags } = req.body;
+  const { name, ingredients, tags, recipeUrl, recipeNotes } = req.body;
 
   const client = await pool.connect();
   try {
@@ -123,6 +125,12 @@ router.put('/:id', async (req, res) => {
     }
     if (tags) {
       await client.query('UPDATE meals SET tags = $1 WHERE id = $2 AND user_id = $3', [tags, id, USER_ID]);
+    }
+    if (recipeUrl !== undefined) {
+      await client.query('UPDATE meals SET recipe_url = $1 WHERE id = $2 AND user_id = $3', [recipeUrl || null, id, USER_ID]);
+    }
+    if (recipeNotes !== undefined) {
+      await client.query('UPDATE meals SET recipe_notes = $1 WHERE id = $2 AND user_id = $3', [recipeNotes || null, id, USER_ID]);
     }
     if (ingredients) {
       await client.query('DELETE FROM ingredients WHERE meal_id = $1', [id]);

@@ -34,6 +34,9 @@ const emptyIngredient = (): IngredientInput => ({
 export default function MealForm({ onSaved, onCancel, editMeal }: Props) {
   const [name, setName] = useState(editMeal?.name || '');
   const [tags, setTags] = useState<MealSlot[]>(editMeal?.tags || []);
+  const [recipeUrl, setRecipeUrl] = useState(editMeal?.recipeUrl || '');
+  const [recipeNotes, setRecipeNotes] = useState(editMeal?.recipeNotes || '');
+  const [showRecipe, setShowRecipe] = useState(!!(editMeal?.recipeUrl || editMeal?.recipeNotes));
   const [ingredients, setIngredients] = useState<IngredientInput[]>([]);
   const [addingMode, setAddingMode] = useState<'search' | 'manual' | 'barcode' | null>(null);
 
@@ -95,9 +98,9 @@ export default function MealForm({ onSaved, onCancel, editMeal }: Props) {
     setSaving(true);
     try {
       if (editMeal) {
-        await api.put(`/api/meals/${editMeal.id}`, { name, tags, ingredients });
+        await api.put(`/api/meals/${editMeal.id}`, { name, tags, ingredients, recipeUrl: recipeUrl || null, recipeNotes: recipeNotes || null });
       } else {
-        await api.post('/api/meals', { name, tags, ingredients });
+        await api.post('/api/meals', { name, tags, ingredients, recipeUrl: recipeUrl || null, recipeNotes: recipeNotes || null });
       }
       onSaved();
     } catch {
@@ -308,6 +311,43 @@ export default function MealForm({ onSaved, onCancel, editMeal }: Props) {
           onScan={(barcode) => { handleBarcodeScan(barcode); setAddingMode(null); }}
           onClose={() => setAddingMode(null)}
         />
+      )}
+
+      {/* Recipe */}
+      {!showRecipe ? (
+        <button
+          onClick={() => setShowRecipe(true)}
+          style={{ fontSize: 13, color: 'var(--accent)', marginBottom: 16 }}
+        >
+          <i className="ti ti-notes" style={{ fontSize: 14, marginRight: 4 }} />
+          Add recipe
+        </button>
+      ) : (
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16, marginBottom: 16 }}>
+          <div style={{
+            fontSize: 11, fontWeight: 600, color: 'var(--text-light)',
+            textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8,
+          }}>
+            Recipe
+          </div>
+          <input
+            placeholder="Recipe URL (e.g. https://www.bbcgoodfood.com/...)"
+            value={recipeUrl}
+            onChange={(e) => setRecipeUrl(e.target.value)}
+            style={{ width: '100%', marginBottom: 8 }}
+          />
+          <textarea
+            placeholder="Or type your recipe notes here..."
+            value={recipeNotes}
+            onChange={(e) => setRecipeNotes(e.target.value)}
+            rows={4}
+            style={{
+              width: '100%', border: '1.5px solid var(--border)', borderRadius: 8,
+              padding: '8px 12px', fontSize: 14, fontFamily: 'var(--font)',
+              outline: 'none', resize: 'vertical', background: '#fff', color: 'var(--text)',
+            }}
+          />
+        </div>
       )}
 
       {/* Actions */}

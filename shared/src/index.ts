@@ -4,6 +4,8 @@ export interface Meal {
   photoUrl: string | null;
   tags: MealSlot[];
   isFavourite: boolean;
+  recipeUrl: string | null;
+  recipeNotes: string | null;
   ingredients: Ingredient[];
 }
 
