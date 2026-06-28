@@ -24,10 +24,13 @@ export default function MealCard({ meal, onDelete, onEdit, onToggleFavourite, on
   const [showMacros, setShowMacros] = useState(false);
   const [showCalories, setShowCalories] = useState(false);
   const [nutrition, setNutrition] = useState<NutritionData | null>(null);
+  const [nutritionMealKey, setNutritionMealKey] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const mealKey = `${meal.id}-${meal.ingredients.length}-${meal.ingredients.map(i => `${i.name}${i.weightGrams}`).join(',')}`;
+
   const loadNutrition = async () => {
-    if (nutrition) return;
+    if (nutrition && nutritionMealKey === mealKey) return;
     setLoading(true);
     try {
       const ings = await api.get<{
@@ -51,6 +54,7 @@ export default function MealCard({ meal, onDelete, onEdit, onToggleFavourite, on
       data.totalCarbs = Math.round(data.ingredients.reduce((s, i) => s + i.carbs, 0) * 10) / 10;
       data.totalFat = Math.round(data.ingredients.reduce((s, i) => s + i.fat, 0) * 10) / 10;
       setNutrition(data);
+      setNutritionMealKey(mealKey);
     } catch {} finally { setLoading(false); }
   };
 
