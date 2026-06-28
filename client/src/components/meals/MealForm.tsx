@@ -38,7 +38,9 @@ export default function MealForm({ onSaved, onCancel, editMeal }: Props) {
   const [recipeNotes, setRecipeNotes] = useState(editMeal?.recipeNotes || '');
   const [showRecipe, setShowRecipe] = useState(!!(editMeal?.recipeUrl || editMeal?.recipeNotes));
   const [ingredients, setIngredients] = useState<IngredientInput[]>([]);
-  const [addingMode, setAddingMode] = useState<'search' | 'manual' | 'barcode' | null>(null);
+  const [addingMode, setAddingMode] = useState<'search' | 'manual' | 'barcode' | 'tesco' | null>(null);
+  const [tescoUrl, setTescoUrl] = useState('');
+  const [tescoLoading, setTescoLoading] = useState(false);
 
   useEffect(() => {
     if (!editMeal) return;
@@ -236,10 +238,16 @@ export default function MealForm({ onSaved, onCancel, editMeal }: Props) {
             + Search
           </button>
           <button
+            onClick={() => setAddingMode('tesco')}
+            style={{ flex: 1, border: '2px solid var(--border)', padding: '8px 0', fontSize: 13, color: 'var(--text-light)' }}
+          >
+            Tesco link
+          </button>
+          <button
             onClick={() => setAddingMode('barcode')}
             style={{ flex: 1, border: '2px solid var(--border)', padding: '8px 0', fontSize: 13, color: 'var(--text-light)' }}
           >
-            Scan barcode
+            Barcode
           </button>
         </div>
       )}
@@ -311,6 +319,57 @@ export default function MealForm({ onSaved, onCancel, editMeal }: Props) {
           onScan={(barcode) => { handleBarcodeScan(barcode); setAddingMode(null); }}
           onClose={() => setAddingMode(null)}
         />
+      )}
+
+      {addingMode === 'tesco' && (
+        <div style={{ border: '1.5px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 12, marginTop: 8, marginBottom: 20 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Tesco product link</div>
+          <p style={{ fontSize: 12, color: 'var(--text-light)', marginBottom: 8 }}>
+            Paste a Tesco product URL and we'll pull the nutrition info automatically.
+          </p>
+          <input
+            placeholder="https://www.tesco.com/shop/en-GB/products/..."
+            value={tescoUrl}
+            onChange={(e) => setTescoUrl(e.target.value)}
+            style={{ width: '100%', marginBottom: 8 }}
+            autoFocus
+          />
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button onClick={() => { setAddingMode(null); setTescoUrl(''); }} style={{ color: 'var(--text-light)', fontSize: 12 }}>Cancel</button>
+            <button
+              onClick={async () => {
+                if (!tescoUrl.trim()) return;
+                setTescoLoading(true);
+                try {
+                  const product = await api.post<{
+                    name: string; caloriesPer100g: number; proteinPer100g: number; carbsPer100g: number; fatPer100g: number; barcode: string;
+                  }>('/api/barcode/tesco', { url: tescoUrl.trim() });
+                  addResolvedIngredient({
+                    name: product.name,
+                    weightGrams: 100,
+                    caloriesPer100g: product.caloriesPer100g,
+                    proteinPer100g: product.proteinPer100g,
+                    carbsPer100g: product.carbsPer100g,
+                    fatPer100g: product.fatPer100g,
+                    barcode: product.barcode,
+                    resolved: true,
+                    groupName: null,
+                    groupCookedWeight: null,
+                  });
+                  setTescoUrl('');
+                } catch {
+                  alert('Could not extract product data from that URL. Try searching by name instead.');
+                } finally {
+                  setTescoLoading(false);
+                }
+              }}
+              disabled={tescoLoading}
+              style={{ background: 'var(--primary)', color: '#D8F3DC', fontSize: 12, padding: '6px 14px' }}
+            >
+              {tescoLoading ? 'Loading...' : 'Add'}
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Recipe */}

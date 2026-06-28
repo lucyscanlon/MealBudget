@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { lookupBarcode, searchByName } from '../services/openfoodfacts.js';
+import { lookupTescoUrl } from '../services/tesco.js';
 
 const router = Router();
 
@@ -8,6 +9,14 @@ router.get('/search', async (req, res) => {
   if (!query || query.length < 2) return res.json([]);
   const results = await searchByName(query);
   res.json(results);
+});
+
+router.post('/tesco', async (req, res) => {
+  const { url } = req.body;
+  if (!url || !url.includes('tesco.com')) return res.status(400).json({ error: 'Invalid Tesco URL' });
+  const product = await lookupTescoUrl(url);
+  if (!product) return res.status(404).json({ error: 'Could not extract product data' });
+  res.json(product);
 });
 
 router.get('/:code', async (req, res) => {
