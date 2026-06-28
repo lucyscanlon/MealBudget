@@ -10,20 +10,19 @@ const SLOT_LABELS: Record<MealSlot, string> = {
   breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', dessert: 'Dessert', snack: 'Snack',
 };
 
-const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-function getMonday(d: Date): string {
+function getSunday(d: Date): string {
   const date = new Date(d);
   const day = date.getDay();
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-  date.setDate(diff);
+  date.setDate(date.getDate() - day);
   return date.toISOString().split('T')[0];
 }
 
 export default function WeeklyPlanner() {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [plan, setPlan] = useState<WeekPlan | null>(null);
-  const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
+  const [weekStart, setWeekStart] = useState(() => getSunday(new Date()));
   const [adjustDay, setAdjustDay] = useState<number | null>(null);
   const [macros, setMacros] = useState<Record<number, MacroBreakdown>>({});
   const [expandedMacros, setExpandedMacros] = useState<Record<number, boolean>>({});
@@ -91,13 +90,13 @@ export default function WeeklyPlanner() {
         <h2 style={{ fontSize: 22, fontWeight: 600 }}>Planner</h2>
         <div style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: 14 }}>
           <button onClick={() => {
-            const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(getMonday(d));
+            const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(getSunday(d));
           }} style={{ padding: '4px 10px', color: 'var(--text-light)' }}>←</button>
           <span style={{ fontWeight: 500, minWidth: 140, textAlign: 'center', color: 'var(--text)' }}>
             Week of {new Date(weekStart).toLocaleDateString('en-GB', { month: 'long', day: 'numeric' })}
           </span>
           <button onClick={() => {
-            const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(getMonday(d));
+            const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(getSunday(d));
           }} style={{ padding: '4px 10px', color: 'var(--text-light)' }}>→</button>
         </div>
       </div>

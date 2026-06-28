@@ -8,11 +8,10 @@ interface ShoppingItem {
   totalGrams: number;
 }
 
-function getMonday(d: Date): string {
+function getSunday(d: Date): string {
   const date = new Date(d);
   const day = date.getDay();
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-  date.setDate(diff);
+  date.setDate(date.getDate() - day);
   return date.toISOString().split('T')[0];
 }
 
@@ -24,7 +23,7 @@ function formatWeight(grams: number): string {
 export default function ShoppingListPage() {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [checked, setChecked] = useState<Set<string>>(new Set());
-  const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
+  const [weekStart, setWeekStart] = useState(() => getSunday(new Date()));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -57,13 +56,13 @@ export default function ShoppingListPage() {
         <h2 style={{ fontSize: 22, fontWeight: 600 }}>Shopping list</h2>
         <div style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: 14 }}>
           <button onClick={() => {
-            const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(getMonday(d));
+            const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(getSunday(d));
           }} style={{ padding: '4px 10px', color: 'var(--text-light)' }}>←</button>
           <span style={{ fontWeight: 500, minWidth: 140, textAlign: 'center', color: 'var(--text)' }}>
             Week of {new Date(weekStart).toLocaleDateString('en-GB', { month: 'long', day: 'numeric' })}
           </span>
           <button onClick={() => {
-            const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(getMonday(d));
+            const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(getSunday(d));
           }} style={{ padding: '4px 10px', color: 'var(--text-light)' }}>→</button>
         </div>
       </div>

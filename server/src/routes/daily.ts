@@ -4,18 +4,17 @@ import pool from '../db.js';
 const router = Router();
 const USER_ID = 1;
 
-function getMonday(d: Date): string {
+function getSunday(d: Date): string {
   const date = new Date(d);
   const day = date.getDay();
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-  date.setDate(diff);
+  date.setDate(date.getDate() - day);
   return date.toISOString().split('T')[0];
 }
 
 async function getDayMenu(dateStr?: string) {
   const date = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
-  const weekStart = getMonday(date);
-  const dayOfWeek = (date.getDay() + 6) % 7; // Mon=0
+  const weekStart = getSunday(date);
+  const dayOfWeek = date.getDay(); // Sun=0
 
   const plan = await pool.query(
     'SELECT id FROM weekly_plans WHERE user_id = $1 AND week_start = $2',
@@ -77,7 +76,7 @@ async function getDayMenu(dateStr?: string) {
 }
 
 function getDayName(dow: number) {
-  return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][dow];
+  return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dow];
 }
 
 // JSON API
