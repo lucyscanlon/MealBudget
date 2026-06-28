@@ -246,12 +246,6 @@ export default function MealForm({ onSaved, onCancel, editMeal }: Props) {
             Paste nutrition
           </button>
           <button
-            onClick={() => setAddingMode('tesco')}
-            style={{ flex: 1, border: '2px solid var(--border)', padding: '8px 0', fontSize: 13, color: 'var(--text-light)' }}
-          >
-            Tesco link
-          </button>
-          <button
             onClick={() => setAddingMode('barcode')}
             style={{ flex: 1, border: '2px solid var(--border)', padding: '8px 0', fontSize: 13, color: 'var(--text-light)' }}
           >
