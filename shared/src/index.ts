@@ -32,6 +32,7 @@ export interface PlanEntry {
   slot: MealSlot;
   portionScale: number;
   sortOrder: number;
+  isTakeaway: boolean;
 }
 
 export type MealSlot = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'dessert';
@@ -45,6 +46,8 @@ export interface DayPlan {
   entries: PlanEntry[];
   budgetRatio: number;
   status: BudgetStatus;
+  isDayOff: boolean;
+  dayOffNote: string | null;
 }
 
 export interface WeekPlan {

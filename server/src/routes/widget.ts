@@ -66,7 +66,27 @@ dateText.textColor = new Color("#ffffff", 0.4);
 
 widget.addSpacer(10);
 
-if (menu && menu.slots && menu.slots.length > 0) {
+if (menu && menu.isDayOff) {
+  const dayOffCard = widget.addStack();
+  dayOffCard.layoutVertically();
+  dayOffCard.centerAlignContent();
+  dayOffCard.setPadding(20, 16, 20, 16);
+  dayOffCard.cornerRadius = 10;
+  dayOffCard.backgroundColor = new Color("#ffffff", 0.08);
+
+  const dayOffIcon = dayOffCard.addText("🎉");
+  dayOffIcon.font = Font.systemFont(28);
+  dayOffCard.addSpacer(6);
+
+  const dayOffText = dayOffCard.addText("Enjoy your day!");
+  dayOffText.font = Font.semiboldSystemFont(14);
+  dayOffText.textColor = new Color("#D8F3DC");
+  dayOffCard.addSpacer(2);
+
+  const dayOffSub = dayOffCard.addText("No calorie tracking today");
+  dayOffSub.font = Font.systemFont(11);
+  dayOffSub.textColor = new Color("#ffffff", 0.5);
+} else if (menu && menu.slots && menu.slots.length > 0) {
   const slotConfig = {
     breakfast: { icon: "☀️", color: "#D8F3DC" },
     lunch: { icon: "🥗", color: "#95D5B2" },
@@ -87,7 +107,8 @@ if (menu && menu.slots && menu.slots.length > 0) {
     card.backgroundColor = new Color("#ffffff", 0.08);
     card.spacing = 10;
 
-    const iconText = card.addText(conf.icon);
+    const hasTakeaway = slot.meals.some(m => m.isTakeaway);
+    const iconText = card.addText(hasTakeaway ? "🍕" : conf.icon);
     iconText.font = Font.systemFont(16);
 
     const textStack = card.addStack();
@@ -96,9 +117,9 @@ if (menu && menu.slots && menu.slots.length > 0) {
 
     const slotLabel = textStack.addText(slot.slot.charAt(0).toUpperCase() + slot.slot.slice(1));
     slotLabel.font = Font.mediumSystemFont(10);
-    slotLabel.textColor = new Color(conf.color);
+    slotLabel.textColor = hasTakeaway ? new Color("#FED7AA") : new Color(conf.color);
 
-    const names = slot.meals.map(m => m.name).join(", ");
+    const names = hasTakeaway ? "Takeaway — enjoy!" : slot.meals.map(m => m.name).join(", ");
     const mealName = textStack.addText(names);
     mealName.font = Font.semiboldSystemFont(13);
     mealName.textColor = new Color("#ffffff");

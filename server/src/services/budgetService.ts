@@ -8,7 +8,7 @@ export async function getDayCalories(planId: number, dayOfWeek: number): Promise
     `SELECT pe.portion_scale, i.weight_grams, i.calories_per_100g
      FROM plan_entries pe
      JOIN ingredients i ON i.meal_id = pe.meal_id
-     WHERE pe.plan_id = $1 AND pe.day_of_week = $2`,
+     WHERE pe.plan_id = $1 AND pe.day_of_week = $2 AND (pe.is_takeaway IS NULL OR pe.is_takeaway = false)`,
     [planId, dayOfWeek]
   );
 

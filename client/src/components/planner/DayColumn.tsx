@@ -34,8 +34,29 @@ export default function DayColumn({ day, onRemoveEntry }: Props) {
 
 function EntryCard({ entry, onRemove }: { entry: PlanEntry; onRemove: (id: number) => void }) {
   const [expanded, setExpanded] = useState(false);
-  const isReduced = entry.portionScale !== 1;
+  const isReduced = entry.portionScale !== 1 && !entry.isTakeaway;
   const pctChange = Math.round((1 - entry.portionScale) * 100);
+
+  if (entry.isTakeaway) {
+    return (
+      <div style={{
+        borderRadius: 'var(--radius-sm)', background: 'var(--peach)',
+        border: '1px solid var(--peach-border)', marginBottom: 3, fontSize: 13,
+        padding: '8px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      }}>
+        <div>
+          <div style={{ fontWeight: 600, color: 'var(--peach-text)' }}>Takeaway</div>
+          <div style={{ fontSize: 11, color: 'var(--text-light)' }}>Enjoy!</div>
+        </div>
+        <button
+          onClick={() => onRemove(entry.id)}
+          style={{ color: 'var(--text-light)', padding: '0 4px', fontSize: 16, lineHeight: 1 }}
+        >
+          ×
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div style={{

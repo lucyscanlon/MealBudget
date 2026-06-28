@@ -20,10 +20,18 @@ async function getDayMenu(dateStr?: string) {
     'SELECT id FROM weekly_plans WHERE user_id = $1 AND week_start = $2',
     [USER_ID, weekStart]
   );
-  if (plan.rows.length === 0) return { date: date.toISOString().split('T')[0], dayName: getDayName(dayOfWeek), slots: [] };
+  if (plan.rows.length === 0) return { date: date.toISOString().split('T')[0], dayName: getDayName(dayOfWeek), slots: [], isDayOff: false };
+
+  // Check day off
+  const dayOffResult = await pool.query('SELECT note FROM day_off WHERE plan_id = $1 AND day_of_week = $2', [plan.rows[0].id, dayOfWeek]);
+  const isDayOff = dayOffResult.rows.length > 0;
+
+  if (isDayOff) {
+    return { date: date.toISOString().split('T')[0], dayName: getDayName(dayOfWeek), slots: [], isDayOff: true, dayOffMessage: "Don't worry about calories — enjoy your day!" };
+  }
 
   const entries = await pool.query(
-    `SELECT pe.slot, pe.portion_scale, m.name as meal_name, m.photo_url
+    `SELECT pe.slot, pe.portion_scale, pe.is_takeaway, m.name as meal_name, m.photo_url
      FROM plan_entries pe
      JOIN meals m ON m.id = pe.meal_id
      WHERE pe.plan_id = $1 AND pe.day_of_week = $2
@@ -60,10 +68,11 @@ async function getDayMenu(dateStr?: string) {
     return {
       slot,
       meals: slotEntries.map((e) => ({
-        name: e.meal_name,
+        name: e.is_takeaway ? 'Takeaway' : e.meal_name,
         photoUrl: e.photo_url,
         portionScale: Number(e.portion_scale),
-        ingredients: ingredientsByMeal[`${e.meal_name}-${e.slot}`] || [],
+        isTakeaway: e.is_takeaway || false,
+        ingredients: e.is_takeaway ? [] : (ingredientsByMeal[`${e.meal_name}-${e.slot}`] || []),
       })),
     };
   }).filter((s) => s.meals.length > 0);
@@ -72,6 +81,7 @@ async function getDayMenu(dateStr?: string) {
     date: date.toISOString().split('T')[0],
     dayName: getDayName(dayOfWeek),
     slots,
+    isDayOff: false,
   };
 }
 

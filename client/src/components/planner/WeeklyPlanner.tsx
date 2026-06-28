@@ -154,15 +154,16 @@ export default function WeeklyPlanner() {
           {/* Day grid — wraps to new lines */}
           <div className="planner-grid">
             {plan?.days.map((day) => {
-              const isEmpty = day.entries.length === 0;
-              const borderColor = isEmpty ? 'var(--border)' : day.status === 'red' ? 'var(--red)' : day.status === 'amber' ? '#F59E0B' : 'var(--green)';
+              const isEmpty = day.entries.length === 0 && !day.isDayOff;
+              const borderColor = day.isDayOff ? 'var(--lavender-border)' : isEmpty ? 'var(--border)' : day.status === 'red' ? 'var(--red)' : day.status === 'amber' ? '#F59E0B' : 'var(--green)';
               return (
                 <div key={day.dayOfWeek} style={{
                   border: `1px solid ${borderColor}`,
                   borderRadius: 'var(--radius)',
                   padding: 14,
                   transition: 'border-color 0.2s',
-                  background: 'var(--card)',
+                  background: day.isDayOff ? 'var(--lavender)' : 'var(--card)',
+                  opacity: day.isDayOff ? 0.85 : 1,
                 }}>
                   {/* Day header */}
                   <div style={{
@@ -194,8 +195,48 @@ export default function WeeklyPlanner() {
                     </div>
                   </div>
 
+                  {/* Day off / takeaway actions */}
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                    <button
+                      onClick={async () => {
+                        await api.post(`/api/planner/${weekStart}/dayoff`, { dayOfWeek: day.dayOfWeek, note: 'Day off' });
+                        loadPlan();
+                      }}
+                      style={{
+                        flex: 1, fontSize: 11, padding: '4px 0', borderRadius: 20,
+                        border: `1.5px solid ${day.isDayOff ? 'var(--lavender-border)' : 'var(--border)'}`,
+                        background: day.isDayOff ? 'var(--lavender)' : 'transparent',
+                        color: day.isDayOff ? 'var(--lavender-text)' : 'var(--text-light)',
+                      }}
+                    >
+                      {day.isDayOff ? 'Day off ✓' : 'Day off'}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await api.post(`/api/planner/${weekStart}/takeaway`, { dayOfWeek: day.dayOfWeek, slot: 'dinner' });
+                        loadPlan();
+                      }}
+                      style={{
+                        flex: 1, fontSize: 11, padding: '4px 0', borderRadius: 20,
+                        border: '1.5px solid var(--border)', color: 'var(--text-light)',
+                      }}
+                    >
+                      + Takeaway
+                    </button>
+                  </div>
+
+                  {/* Day off message */}
+                  {day.isDayOff && (
+                    <div style={{
+                      textAlign: 'center', padding: '12px 8px', fontSize: 13,
+                      color: 'var(--lavender-text)', fontWeight: 600,
+                    }}>
+                      Don't worry about calories — enjoy your day!
+                    </div>
+                  )}
+
                   {/* Over budget notice */}
-                  {day.status === 'amber' && (
+                  {!day.isDayOff && day.status === 'amber' && (
                     <div style={{
                       fontSize: 12, color: '#F59E0B', fontWeight: 500,
                       marginBottom: 10, padding: '4px 0',
@@ -203,7 +244,7 @@ export default function WeeklyPlanner() {
                       Slightly over budget
                     </div>
                   )}
-                  {day.status === 'red' && (
+                  {!day.isDayOff && day.status === 'red' && (
                     <div style={{
                       fontSize: 12, color: 'var(--red)', fontWeight: 500,
                       marginBottom: 10, padding: '4px 0',

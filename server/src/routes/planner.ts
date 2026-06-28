@@ -17,7 +17,7 @@ router.get('/:weekStart', async (req, res) => {
   const planId = plan.rows[0].id;
 
   const entries = await pool.query(
-    `SELECT pe.id, pe.meal_id, pe.day_of_week, pe.slot, pe.portion_scale, pe.sort_order,
+    `SELECT pe.id, pe.meal_id, pe.day_of_week, pe.slot, pe.portion_scale, pe.sort_order, pe.is_takeaway,
             m.name as meal_name, COALESCE(m.photo_data, m.photo_url) as photo
      FROM plan_entries pe
      JOIN meals m ON m.id = pe.meal_id
@@ -46,8 +46,16 @@ router.get('/:weekStart', async (req, res) => {
     }
   }
 
+  // Load day-off data
+  const daysOff = await pool.query('SELECT day_of_week, note FROM day_off WHERE plan_id = $1', [planId]);
+  const dayOffMap = new Map<number, string | null>();
+  for (const row of daysOff.rows) {
+    dayOffMap.set(row.day_of_week, row.note || null);
+  }
+
   const days = [];
   for (let d = 0; d < 7; d++) {
+    const isDayOff = dayOffMap.has(d);
     const dayEntries = entries.rows
       .filter((e) => e.day_of_week === d)
       .map((e) => ({
@@ -55,9 +63,9 @@ router.get('/:weekStart', async (req, res) => {
         mealId: e.meal_id,
         meal: {
           id: e.meal_id,
-          name: e.meal_name,
+          name: e.is_takeaway ? 'Takeaway' : e.meal_name,
           photoUrl: e.photo || null,
-          ingredients: (ingredientsByMeal[e.meal_id] || []).map((ing: any) => ({
+          ingredients: e.is_takeaway ? [] : (ingredientsByMeal[e.meal_id] || []).map((ing: any) => ({
             ...ing,
             weightGrams: Math.round(ing.weightGrams * Number(e.portion_scale)),
           })),
@@ -66,16 +74,20 @@ router.get('/:weekStart', async (req, res) => {
         slot: e.slot,
         portionScale: Number(e.portion_scale),
         sortOrder: e.sort_order,
+        isTakeaway: e.is_takeaway || false,
       }));
 
-    const totalCals = await getDayCalories(planId, d);
+    // Don't count takeaway entries or day-off days toward budget
+    const totalCals = isDayOff ? 0 : await getDayCalories(planId, d);
     const ratio = budget > 0 ? totalCals / budget : 0;
 
     days.push({
       dayOfWeek: d,
       entries: dayEntries,
       budgetRatio: Math.round(ratio * 100) / 100,
-      status: calcStatus(totalCals, budget),
+      status: isDayOff ? 'green' as const : calcStatus(totalCals, budget),
+      isDayOff,
+      dayOffNote: dayOffMap.get(d) || null,
     });
   }
 
@@ -168,6 +180,48 @@ router.post('/adjust/custom', async (req, res) => {
   const avgScale = count > 0 ? totalRatio / count : 1;
   await pool.query('UPDATE plan_entries SET portion_scale = $1 WHERE id = $2', [avgScale, targetEntryId]);
   res.json({ success: true, portionScale: avgScale });
+});
+
+// Add takeaway entry
+router.post('/:weekStart/takeaway', async (req, res) => {
+  const { weekStart } = req.params;
+  const { dayOfWeek, slot } = req.body;
+
+  let plan = await pool.query('SELECT id FROM weekly_plans WHERE user_id = $1 AND week_start = $2', [USER_ID, weekStart]);
+  if (plan.rows.length === 0) {
+    plan = await pool.query('INSERT INTO weekly_plans (user_id, week_start) VALUES ($1, $2) RETURNING id', [USER_ID, weekStart]);
+  }
+
+  // Need a dummy meal for takeaway — use the first meal or create a placeholder
+  const firstMeal = await pool.query('SELECT id FROM meals WHERE user_id = $1 LIMIT 1', [USER_ID]);
+  if (firstMeal.rows.length === 0) return res.status(400).json({ error: 'Create at least one meal first' });
+
+  const result = await pool.query(
+    'INSERT INTO plan_entries (plan_id, meal_id, day_of_week, slot, is_takeaway) VALUES ($1, $2, $3, $4, true) RETURNING id',
+    [plan.rows[0].id, firstMeal.rows[0].id, dayOfWeek, slot]
+  );
+  res.json({ id: result.rows[0].id });
+});
+
+// Toggle day off
+router.post('/:weekStart/dayoff', async (req, res) => {
+  const { weekStart } = req.params;
+  const { dayOfWeek, note } = req.body;
+
+  let plan = await pool.query('SELECT id FROM weekly_plans WHERE user_id = $1 AND week_start = $2', [USER_ID, weekStart]);
+  if (plan.rows.length === 0) {
+    plan = await pool.query('INSERT INTO weekly_plans (user_id, week_start) VALUES ($1, $2) RETURNING id', [USER_ID, weekStart]);
+  }
+  const planId = plan.rows[0].id;
+
+  const existing = await pool.query('SELECT id FROM day_off WHERE plan_id = $1 AND day_of_week = $2', [planId, dayOfWeek]);
+  if (existing.rows.length > 0) {
+    await pool.query('DELETE FROM day_off WHERE id = $1', [existing.rows[0].id]);
+    res.json({ isDayOff: false });
+  } else {
+    await pool.query('INSERT INTO day_off (plan_id, day_of_week, note) VALUES ($1, $2, $3)', [planId, dayOfWeek, note || null]);
+    res.json({ isDayOff: true });
+  }
 });
 
 router.get('/:weekStart/:day/macros', async (req, res) => {
