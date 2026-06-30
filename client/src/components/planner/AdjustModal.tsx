@@ -86,25 +86,18 @@ export default function AdjustModal({ entries, weekStart, dayOfWeek, onClose, on
   };
 
   const rebalance = () => {
+    // Target = what the server calculated as the budget-fitted total calories
+    // adjustedIngredients contains all ingredients (including group members), so this is correct
+    const serverTargetCals = result!.adjustedIngredients.reduce(
+      (sum, i) => sum + (i.newGrams / 100) * i.caloriesPer100g, 0
+    );
+
     setRows((prev) => {
-      const targetCalories = result!.adjustedIngredients.reduce(
-        (sum, i) => sum + (i.newGrams / 100) * i.caloriesPer100g, 0
-      ) + result!.adjustedGroups.reduce(
-        (sum, g) => {
-          const row = prev.find((r) => r.isGroup && r.name === g.name);
-          // use original target new grams for groups if not locked
-          return sum; // groups are included via their effectiveCal100g in rows
-        }, 0
-      );
-
-      // Simpler: target = sum of all rows at their adjusted (post-server) new values
-      const serverTarget = prev.reduce((sum, r) => sum + (r.newGrams / 100) * r.caloriesPer100g, 0);
-
       const lockedCals = prev
         .filter((r) => r.locked)
         .reduce((sum, r) => sum + (r.newGrams / 100) * r.caloriesPer100g, 0);
 
-      const remaining = serverTarget - lockedCals;
+      const remaining = serverTargetCals - lockedCals;
       const unlocked = prev.filter((r) => !r.locked);
       const unlockedOrigCals = unlocked.reduce((sum, r) => sum + (r.originalGrams / 100) * r.caloriesPer100g, 0);
 
