@@ -156,9 +156,14 @@ if (menu && menu.isDayOff) {
             }
           }
           for (const line of lines) {
-            const ingText = card.addText(line);
+            const ingRow = card.addStack();
+            ingRow.layoutHorizontally();
+            ingRow.size = new Size(0, 0);
+            const ingText = ingRow.addText(line);
             ingText.font = Font.systemFont(9);
             ingText.textColor = new Color("#ffffff", 0.55);
+            ingText.lineLimit = 1;
+            ingText.minimumScaleFactor = 0.8;
           }
         }
       }
