@@ -140,6 +140,7 @@ input::placeholder {
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 14px;
   flex: 1;
+  min-width: 0;
 }
 .meal-grid {
   display: grid;
@@ -169,10 +170,12 @@ input::placeholder {
 
 @media (max-width: 600px) {
   .dashboard-stats { grid-template-columns: repeat(2, 1fr); }
-  .planner-grid { grid-template-columns: 1fr; }
+  .planner-grid { grid-template-columns: 1fr; min-width: 0; }
   .planner-sidebar { grid-template-columns: repeat(2, 1fr); }
   .meal-grid { grid-template-columns: 1fr; }
   .edit-profile-grid { grid-template-columns: 1fr; }
+  .planner-day-header { flex-wrap: wrap; gap: 4px; }
+  .planner-day-actions { flex-wrap: wrap; }
 }
 
 input[type="number"] {

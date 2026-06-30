@@ -166,12 +166,12 @@ export default function WeeklyPlanner() {
                   opacity: day.isDayOff ? 0.85 : 1,
                 }}>
                   {/* Day header */}
-                  <div style={{
+                  <div className="planner-day-header" style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid var(--border)',
                   }}>
                     <span style={{ fontWeight: 600, fontSize: 15 }}>{DAY_NAMES[day.dayOfWeek]}</span>
-                    <div style={{ display: 'flex', gap: 4 }}>
+                    <div className="planner-day-actions" style={{ display: 'flex', gap: 4 }}>
                       {(day.status === 'red' || day.status === 'amber') && (
                         <button
                           onClick={() => setAdjustDay(day.dayOfWeek)}
