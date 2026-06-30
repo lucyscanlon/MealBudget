@@ -100,37 +100,54 @@ if (menu && menu.isDayOff) {
     const conf = slotConfig[slot.slot] || { icon: "•", color: "#ffffff" };
 
     const card = widget.addStack();
-    card.layoutHorizontally();
-    card.centerAlignContent();
+    card.layoutVertically();
     card.setPadding(8, 10, 8, 10);
     card.cornerRadius = 10;
     card.backgroundColor = new Color("#ffffff", 0.08);
-    card.spacing = 10;
+    card.spacing = 3;
 
     const hasTakeaway = slot.meals.some(m => m.isTakeaway);
-    const iconText = card.addText(hasTakeaway ? "🍕" : conf.icon);
-    iconText.font = Font.systemFont(16);
+    const isReduced = slot.meals.some(m => m.portionScale !== 1);
 
-    const textStack = card.addStack();
-    textStack.layoutVertically();
-    textStack.spacing = 1;
+    // Header row: icon + slot label + reduced badge
+    const headerRow = card.addStack();
+    headerRow.layoutHorizontally();
+    headerRow.centerAlignContent();
+    headerRow.spacing = 6;
 
-    const slotLabel = textStack.addText(slot.slot.charAt(0).toUpperCase() + slot.slot.slice(1));
+    const iconText = headerRow.addText(hasTakeaway ? "🍕" : conf.icon);
+    iconText.font = Font.systemFont(12);
+
+    const slotLabel = headerRow.addText(slot.slot.charAt(0).toUpperCase() + slot.slot.slice(1));
     slotLabel.font = Font.mediumSystemFont(10);
     slotLabel.textColor = hasTakeaway ? new Color("#FED7AA") : new Color(conf.color);
 
+    headerRow.addSpacer();
+
+    if (isReduced) {
+      const badge = headerRow.addText("↓ Adjusted");
+      badge.font = Font.boldSystemFont(9);
+      badge.textColor = new Color("#E76F51");
+    }
+
+    // Meal name(s)
     const names = hasTakeaway ? "Takeaway — enjoy!" : slot.meals.map(m => m.name).join(", ");
-    const mealName = textStack.addText(names);
-    mealName.font = Font.semiboldSystemFont(13);
+    const mealName = card.addText(names);
+    mealName.font = Font.semiboldSystemFont(12);
     mealName.textColor = new Color("#ffffff");
     mealName.lineLimit = 1;
 
-    card.addSpacer();
-
-    if (slot.meals.some(m => m.portionScale !== 1)) {
-      const badge = card.addText("↓");
-      badge.font = Font.boldSystemFont(12);
-      badge.textColor = new Color("#E76F51");
+    // Ingredients with weights
+    if (!hasTakeaway) {
+      for (const meal of slot.meals) {
+        if (meal.ingredients && meal.ingredients.length > 0) {
+          const ingLine = meal.ingredients.map(ing => ing.weightGrams + "g " + ing.name).join("  ·  ");
+          const ingText = card.addText(ingLine);
+          ingText.font = Font.systemFont(9);
+          ingText.textColor = new Color("#ffffff", 0.55);
+          ingText.lineLimit = 2;
+        }
+      }
     }
 
     if (i < menu.slots.length - 1) {
