@@ -10,19 +10,19 @@ interface Props {
   onAdjusted: () => void;
 }
 
-interface CustomIngredient {
+interface IngRow {
   name: string;
+  groupName: string | null;
   originalGrams: number;
   newGrams: number;
   caloriesPer100g: number;
-  groupName: string | null;
   locked: boolean;
 }
 
 export default function AdjustModal({ entries, weekStart, dayOfWeek, onClose, onAdjusted }: Props) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [result, setResult] = useState<AdjustResult | null>(null);
-  const [customIngs, setCustomIngs] = useState<CustomIngredient[]>([]);
+  const [rows, setRows] = useState<IngRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -34,8 +34,14 @@ export default function AdjustModal({ entries, weekStart, dayOfWeek, onClose, on
         weekStart, dayOfWeek, targetEntryId: selectedId,
       });
       setResult(res);
-      setCustomIngs(res.adjustedIngredients.filter((i) => !i.groupName).map((i) => ({
-        ...i, locked: false,
+      // Flatten all ingredients (grouped and ungrouped) into rows
+      setRows(res.adjustedIngredients.map((i) => ({
+        name: i.name,
+        groupName: i.groupName,
+        originalGrams: i.originalGrams,
+        newGrams: i.newGrams,
+        caloriesPer100g: i.caloriesPer100g,
+        locked: false,
       })));
     } catch {
       alert('Adjustment failed');
@@ -44,48 +50,34 @@ export default function AdjustModal({ entries, weekStart, dayOfWeek, onClose, on
     }
   };
 
-  const handleIngredientChange = (index: number, newGrams: number) => {
-    setCustomIngs((prev) => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], newGrams, locked: true };
+  // Lock a row at its current value and rebalance unlocked rows
+  const lockRow = (index: number) => {
+    setRows((prev) => {
+      const updated = prev.map((r, i) => i === index ? { ...r, locked: true } : r);
 
-      // Calculate how many calories this locked ingredient now uses
+      const targetCalories = prev.reduce((sum, r) => sum + (r.newGrams / 100) * r.caloriesPer100g, 0);
       const lockedCalories = updated
-        .filter((i) => i.locked)
-        .reduce((sum, i) => sum + (i.newGrams / 100) * i.caloriesPer100g, 0);
+        .filter((r) => r.locked)
+        .reduce((sum, r) => sum + (r.newGrams / 100) * r.caloriesPer100g, 0);
 
-      // Original total calories for this meal
-      const originalCalories = prev.reduce((sum, i) => sum + (i.originalGrams / 100) * i.caloriesPer100g, 0);
-
-      // Target total (what the auto-adjust calculated)
-      const targetCalories = prev.reduce((sum, i) => sum + (i.newGrams / 100) * i.caloriesPer100g, 0);
-
-      // Remaining calories for unlocked ingredients
       const remainingCals = targetCalories - lockedCalories;
+      const unlocked = updated.filter((r) => !r.locked);
+      const unlockedOrigCals = unlocked.reduce((sum, r) => sum + (r.originalGrams / 100) * r.caloriesPer100g, 0);
 
-      // Distribute remaining across unlocked ingredients proportionally
-      const unlocked = updated.filter((i) => !i.locked);
-      const unlockedOrigCals = unlocked.reduce((sum, i) => sum + (i.originalGrams / 100) * i.caloriesPer100g, 0);
-
-      if (unlockedOrigCals > 0 && unlocked.length > 0) {
+      if (unlockedOrigCals > 0) {
         const ratio = Math.max(0, remainingCals / unlockedOrigCals);
-        for (const ing of updated) {
-          if (!ing.locked) {
-            ing.newGrams = Math.max(0, Math.round(ing.originalGrams * ratio));
-          }
-        }
+        return updated.map((r) => r.locked ? r : { ...r, newGrams: Math.max(0, Math.round(r.originalGrams * ratio)) });
       }
-
       return updated;
     });
   };
 
-  const toggleLock = (index: number) => {
-    setCustomIngs((prev) => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], locked: !updated[index].locked };
-      return updated;
-    });
+  const unlockRow = (index: number) => {
+    setRows((prev) => prev.map((r, i) => i === index ? { ...r, locked: false } : r));
+  };
+
+  const setGrams = (index: number, grams: number) => {
+    setRows((prev) => prev.map((r, i) => i === index ? { ...r, newGrams: Math.max(0, grams) } : r));
   };
 
   const handleSave = async () => {
@@ -94,7 +86,7 @@ export default function AdjustModal({ entries, weekStart, dayOfWeek, onClose, on
     try {
       await api.post('/api/planner/adjust/custom', {
         targetEntryId: result.entryId,
-        customWeights: customIngs.map((i) => ({ name: i.name, newGrams: i.newGrams })),
+        customWeights: rows.map((r) => ({ name: r.name, grams: r.newGrams })),
       });
       onAdjusted();
       onClose();
@@ -105,14 +97,25 @@ export default function AdjustModal({ entries, weekStart, dayOfWeek, onClose, on
     }
   };
 
+  // Group rows by groupName for display
+  const grouped: { groupName: string | null; rows: (IngRow & { index: number })[] }[] = [];
+  rows.forEach((r, i) => {
+    const existing = grouped.find((g) => g.groupName === r.groupName);
+    if (existing) {
+      existing.rows.push({ ...r, index: i });
+    } else {
+      grouped.push({ groupName: r.groupName, rows: [{ ...r, index: i }] });
+    }
+  });
+
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
     }}>
       <div style={{
-        background: 'var(--bg)', borderRadius: 'var(--radius)', padding: 24, width: 440,
-        maxHeight: '85vh', overflow: 'auto', border: '1px solid var(--border)',
+        background: 'var(--bg)', borderRadius: 'var(--radius)', padding: 24, width: 460,
+        maxWidth: '95vw', maxHeight: '85vh', overflow: 'auto', border: '1px solid var(--border)',
         boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
       }}>
         <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Adjust portions</h3>
@@ -168,64 +171,87 @@ export default function AdjustModal({ entries, weekStart, dayOfWeek, onClose, on
             )}
 
             <p style={{ fontSize: 13, color: 'var(--text-light)', marginBottom: 4 }}>
-              Adjust individual ingredients — change one and the others rebalance automatically.
-            </p>
-            <p style={{ fontSize: 11, color: 'var(--text-light)', marginBottom: 12 }}>
-              <i className="ti ti-lock" style={{ fontSize: 12 }} /> = locked (won't change when others adjust)
+              Change a weight, then click <i className="ti ti-lock" style={{ fontSize: 12 }} /> to lock it in — unlocked ingredients will rebalance automatically.
             </p>
 
-            {/* Grouped ingredients */}
-            {result.adjustedGroups.length > 0 && result.adjustedGroups.map((group, i) => {
-              const pct = Math.round((1 - group.newGrams / group.originalGrams) * 100);
-              return (
-                <div key={`g-${i}`} style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 600,
-                }}>
-                  <span>{group.name} (cooked)</span>
-                  <span>
-                    <span style={{ textDecoration: 'line-through', color: 'var(--text-light)', marginRight: 6 }}>{group.originalGrams}g</span>
-                    <strong>{group.newGrams}g</strong>
-                    <span style={{ fontSize: 11, color: 'var(--coral)', marginLeft: 6 }}>-{pct}%</span>
-                  </span>
-                </div>
-              );
-            })}
+            <div style={{ marginTop: 12 }}>
+              {grouped.map((group) => (
+                <div key={group.groupName ?? '__none__'}>
+                  {group.groupName && (
+                    <div style={{
+                      fontSize: 11, fontWeight: 600, color: 'var(--text-light)',
+                      textTransform: 'uppercase', letterSpacing: '0.04em',
+                      padding: '10px 0 4px', borderTop: '1px solid var(--border)',
+                    }}>
+                      {group.groupName} (group)
+                      {(() => {
+                        // Show group cooked weight summary
+                        const grp = result.adjustedGroups.find((g) => g.name === group.groupName);
+                        if (!grp) return null;
+                        return (
+                          <span style={{ fontWeight: 400, color: 'var(--text-light)', marginLeft: 8 }}>
+                            cooked: <span style={{ textDecoration: 'line-through', marginRight: 4 }}>{grp.originalGrams}g</span>
+                            <strong style={{ color: 'var(--text)' }}>{Math.round(grp.newGrams * (rows.filter(r => r.groupName === group.groupName).reduce((s, r) => s + r.newGrams, 0) / Math.max(1, rows.filter(r => r.groupName === group.groupName).reduce((s, r) => s + r.originalGrams, 0))))}g</strong>
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  )}
+                  {group.rows.map((row) => {
+                    const pct = row.originalGrams > 0 ? Math.round(((row.newGrams - row.originalGrams) / row.originalGrams) * 100) : 0;
+                    return (
+                      <div key={row.index} style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13,
+                        paddingLeft: group.groupName ? 12 : 0,
+                      }}>
+                        {/* Lock button */}
+                        <button
+                          onClick={() => row.locked ? unlockRow(row.index) : lockRow(row.index)}
+                          title={row.locked ? 'Unlock — will rebalance with others' : 'Lock this weight in and rebalance others'}
+                          style={{
+                            padding: '3px 5px', fontSize: 14, flexShrink: 0,
+                            color: row.locked ? 'var(--sage)' : 'var(--text-light)',
+                            background: row.locked ? 'var(--foam)' : 'transparent',
+                            borderRadius: 6,
+                          }}
+                        >
+                          <i className={`ti ${row.locked ? 'ti-lock' : 'ti-lock-open'}`} style={{ fontSize: 14 }} />
+                        </button>
 
-            {/* Editable ungrouped ingredients */}
-            {customIngs.map((ing, i) => {
-              const pct = ing.originalGrams > 0 ? Math.round((1 - ing.newGrams / ing.originalGrams) * 100) : 0;
-              return (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13,
-                }}>
-                  <button
-                    onClick={() => toggleLock(i)}
-                    style={{
-                      padding: '2px 4px', fontSize: 14, flexShrink: 0,
-                      color: ing.locked ? 'var(--sage)' : 'var(--text-light)',
-                    }}
-                  >
-                    <i className={`ti ${ing.locked ? 'ti-lock' : 'ti-lock-open'}`} style={{ fontSize: 14 }} />
-                  </button>
-                  <span style={{ flex: 1 }}>{ing.name}</span>
-                  <span style={{ textDecoration: 'line-through', color: 'var(--text-light)', fontSize: 12 }}>
-                    {ing.originalGrams}g
-                  </span>
-                  <input
-                    type="number"
-                    value={ing.newGrams}
-                    onChange={(e) => handleIngredientChange(i, Math.max(0, Number(e.target.value)))}
-                    onFocus={(e) => e.target.select()}
-                    style={{ width: 60, textAlign: 'center', fontSize: 13, padding: '4px 6px', fontWeight: 600 }}
-                  />
-                  <span style={{ fontSize: 11, color: pct > 0 ? 'var(--coral)' : 'var(--sage)', minWidth: 36, textAlign: 'right' }}>
-                    {pct > 0 ? `-${pct}%` : pct < 0 ? `+${Math.abs(pct)}%` : '0%'}
-                  </span>
+                        {/* Name */}
+                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {row.name}
+                        </span>
+
+                        {/* Original */}
+                        <span style={{ textDecoration: 'line-through', color: 'var(--text-light)', fontSize: 12, flexShrink: 0 }}>
+                          {row.originalGrams}g
+                        </span>
+
+                        {/* Input */}
+                        <input
+                          type="number"
+                          value={row.newGrams}
+                          onChange={(e) => setGrams(row.index, Number(e.target.value))}
+                          onFocus={(e) => e.target.select()}
+                          style={{ width: 64, textAlign: 'center', fontSize: 13, padding: '4px 6px', fontWeight: 600 }}
+                        />
+                        <span style={{ fontSize: 11, color: 'var(--text-light)', flexShrink: 0 }}>g</span>
+
+                        {/* % change */}
+                        <span style={{
+                          fontSize: 11, minWidth: 38, textAlign: 'right', flexShrink: 0,
+                          color: pct < 0 ? 'var(--coral)' : pct > 0 ? 'var(--sage)' : 'var(--text-light)',
+                        }}>
+                          {pct > 0 ? `+${pct}%` : pct < 0 ? `${pct}%` : '–'}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              ))}
+            </div>
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
               <button onClick={onClose} style={{ color: 'var(--text-light)', padding: '6px 14px' }}>Cancel</button>

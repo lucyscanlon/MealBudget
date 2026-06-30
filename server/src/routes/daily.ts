@@ -31,7 +31,7 @@ async function getDayMenu(dateStr?: string) {
   }
 
   const entries = await pool.query(
-    `SELECT pe.slot, pe.portion_scale, pe.is_takeaway, m.name as meal_name, m.photo_url
+    `SELECT pe.id, pe.slot, pe.portion_scale, pe.is_takeaway, pe.custom_weights, m.id as meal_id, m.name as meal_name, m.photo_url
      FROM plan_entries pe
      JOIN meals m ON m.id = pe.meal_id
      WHERE pe.plan_id = $1 AND pe.day_of_week = $2
@@ -39,26 +39,35 @@ async function getDayMenu(dateStr?: string) {
     [plan.rows[0].id, dayOfWeek]
   );
 
-  const mealIds = [...new Set(entries.rows.map((e) => e.meal_id))];
   let ingredientsByMeal: Record<string, any[]> = {};
 
   if (entries.rows.length > 0) {
-    const mealNames = entries.rows.map((e) => e.meal_name);
     for (const entry of entries.rows) {
       const ings = await pool.query(
         `SELECT i.name, i.weight_grams, i.group_name, i.group_cooked_weight
          FROM ingredients i
-         JOIN meals m ON m.id = i.meal_id
-         WHERE m.name = $1 AND m.user_id = $2`,
-        [entry.meal_name, USER_ID]
+         WHERE i.meal_id = $1`,
+        [entry.meal_id]
       );
+      const cwMap: Record<string, number> = {};
+      if (entry.custom_weights) {
+        for (const cw of entry.custom_weights) cwMap[cw.name] = cw.grams;
+      }
+      const scale = Number(entry.portion_scale);
       const key = `${entry.meal_name}-${entry.slot}`;
-      ingredientsByMeal[key] = ings.rows.map((i) => ({
-        name: i.name,
-        weightGrams: Math.round(Number(i.weight_grams) * Number(entry.portion_scale)),
-        groupName: i.group_name || null,
-        groupCookedWeight: i.group_cooked_weight ? Math.round(Number(i.group_cooked_weight) * Number(entry.portion_scale)) : null,
-      }));
+      ingredientsByMeal[key] = ings.rows.map((i: any) => {
+        const weightGrams = cwMap[i.name] !== undefined
+          ? cwMap[i.name]
+          : Math.round(Number(i.weight_grams) * scale);
+        // For group cooked weight: scale proportionally based on ingredient scale
+        const ingScale = Number(i.weight_grams) > 0 ? weightGrams / Number(i.weight_grams) : scale;
+        return {
+          name: i.name,
+          weightGrams,
+          groupName: i.group_name || null,
+          groupCookedWeight: i.group_cooked_weight ? Math.round(Number(i.group_cooked_weight) * ingScale) : null,
+        };
+      });
     }
   }
 

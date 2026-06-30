@@ -17,8 +17,8 @@ router.get('/:weekStart', async (req, res) => {
   const planId = plan.rows[0].id;
 
   const entries = await pool.query(
-    `SELECT pe.id, pe.meal_id, pe.day_of_week, pe.slot, pe.portion_scale, pe.sort_order, pe.is_takeaway,
-            m.name as meal_name, COALESCE(m.photo_data, m.photo_url) as photo
+    `SELECT pe.id, pe.meal_id, pe.day_of_week, pe.slot, pe.portion_scale, pe.sort_order, pe.is_takeaway, pe.custom_weights,
+            m.name as meal_name, (m.photo_data IS NOT NULL AND m.photo_data != '') AS has_photo, m.photo_url
      FROM plan_entries pe
      JOIN meals m ON m.id = pe.meal_id
      WHERE pe.plan_id = $1
@@ -58,24 +58,33 @@ router.get('/:weekStart', async (req, res) => {
     const isDayOff = dayOffMap.has(d);
     const dayEntries = entries.rows
       .filter((e) => e.day_of_week === d)
-      .map((e) => ({
-        id: e.id,
-        mealId: e.meal_id,
-        meal: {
-          id: e.meal_id,
-          name: e.is_takeaway ? 'Takeaway' : e.meal_name,
-          photoUrl: e.photo || null,
-          ingredients: e.is_takeaway ? [] : (ingredientsByMeal[e.meal_id] || []).map((ing: any) => ({
-            ...ing,
-            weightGrams: Math.round(ing.weightGrams * Number(e.portion_scale)),
-          })),
-        },
-        dayOfWeek: e.day_of_week,
-        slot: e.slot,
-        portionScale: Number(e.portion_scale),
-        sortOrder: e.sort_order,
-        isTakeaway: e.is_takeaway || false,
-      }));
+      .map((e) => {
+        const cwMap: Record<string, number> = {};
+        if (e.custom_weights) {
+          for (const cw of e.custom_weights) cwMap[cw.name] = cw.grams;
+        }
+        return {
+          id: e.id,
+          mealId: e.meal_id,
+          meal: {
+            id: e.meal_id,
+            name: e.is_takeaway ? 'Takeaway' : e.meal_name,
+            photoUrl: e.has_photo ? `/api/meals/${e.meal_id}/photo` : (e.photo_url || null),
+            ingredients: e.is_takeaway ? [] : (ingredientsByMeal[e.meal_id] || []).map((ing: any) => ({
+              ...ing,
+              weightGrams: cwMap[ing.name] !== undefined
+                ? cwMap[ing.name]
+                : Math.round(ing.weightGrams * Number(e.portion_scale)),
+            })),
+          },
+          dayOfWeek: e.day_of_week,
+          slot: e.slot,
+          portionScale: Number(e.portion_scale),
+          sortOrder: e.sort_order,
+          isTakeaway: e.is_takeaway || false,
+          hasCustomWeights: !!e.custom_weights,
+        };
+      });
 
     // Don't count takeaway entries or day-off days toward budget
     const totalCals = isDayOff ? 0 : await getDayCalories(planId, d);
@@ -153,33 +162,35 @@ router.post('/adjust', async (req, res) => {
 
 router.post('/adjust/custom', async (req, res) => {
   const { targetEntryId, customWeights } = req.body;
-  // customWeights: { name: string, newGrams: number }[]
-  // Recalculate portion_scale based on custom weights
-  const entry = await pool.query('SELECT meal_id, portion_scale FROM plan_entries WHERE id = $1', [targetEntryId]);
+  // customWeights: { name: string, grams: number }[]
+  const entry = await pool.query('SELECT meal_id FROM plan_entries WHERE id = $1', [targetEntryId]);
   if (entry.rows.length === 0) return res.status(404).json({ error: 'Entry not found' });
 
+  // Store per-ingredient weights as JSONB; compute calorie-weighted portion_scale for budget display
   const ingredients = await pool.query(
-    'SELECT name, weight_grams FROM ingredients WHERE meal_id = $1',
+    'SELECT name, weight_grams, calories_per_100g FROM ingredients WHERE meal_id = $1',
     [entry.rows[0].meal_id]
   );
 
-  // Find the max scale across all custom weights to use as portion_scale
-  // (individual ingredient weights are stored as base * portion_scale, so we need a single scale)
-  // Instead, we'll use a scale of 1 and store absolute weights by adjusting base weights
-  // Actually simpler: just keep portion_scale and note that the display uses custom weights
-  // For now, save the overall portion_scale as the average ratio
-  let totalRatio = 0;
-  let count = 0;
-  for (const cw of customWeights) {
-    const orig = ingredients.rows.find((i: any) => i.name === cw.name);
-    if (orig) {
-      totalRatio += cw.newGrams / Number(orig.weight_grams);
-      count++;
-    }
+  let originalCals = 0;
+  let customCals = 0;
+  const cwMap: Record<string, number> = {};
+  for (const cw of customWeights) cwMap[cw.name] = cw.grams;
+
+  for (const ing of ingredients.rows) {
+    const baseCals = (Number(ing.weight_grams) / 100) * Number(ing.calories_per_100g);
+    originalCals += baseCals;
+    const newGrams = cwMap[ing.name] !== undefined ? cwMap[ing.name] : Number(ing.weight_grams);
+    customCals += (newGrams / 100) * Number(ing.calories_per_100g);
   }
-  const avgScale = count > 0 ? totalRatio / count : 1;
-  await pool.query('UPDATE plan_entries SET portion_scale = $1 WHERE id = $2', [avgScale, targetEntryId]);
-  res.json({ success: true, portionScale: avgScale });
+
+  const portionScale = originalCals > 0 ? customCals / originalCals : 1;
+
+  await pool.query(
+    'UPDATE plan_entries SET portion_scale = $1, custom_weights = $2 WHERE id = $3',
+    [portionScale, JSON.stringify(customWeights.map((cw: any) => ({ name: cw.name, grams: cw.grams }))), targetEntryId]
+  );
+  res.json({ success: true, portionScale });
 });
 
 // Add takeaway entry
@@ -232,16 +243,28 @@ router.get('/:weekStart/:day/macros', async (req, res) => {
   if (plan.rows.length === 0) return res.json({ proteinGrams: 0, carbsGrams: 0, fatGrams: 0 });
 
   const result = await pool.query(
-    `SELECT pe.portion_scale, i.weight_grams, i.protein_per_100g, i.carbs_per_100g, i.fat_per_100g
+    `SELECT pe.id, pe.portion_scale, pe.custom_weights, i.name, i.weight_grams, i.protein_per_100g, i.carbs_per_100g, i.fat_per_100g
      FROM plan_entries pe
      JOIN ingredients i ON i.meal_id = pe.meal_id
      WHERE pe.plan_id = $1 AND pe.day_of_week = $2`,
     [plan.rows[0].id, dayOfWeek]
   );
 
+  const entryCwMap = new Map<number, Record<string, number>>();
+  for (const row of result.rows) {
+    if (row.custom_weights && !entryCwMap.has(row.id)) {
+      const cw: Record<string, number> = {};
+      for (const item of row.custom_weights) cw[item.name] = item.grams;
+      entryCwMap.set(row.id, cw);
+    }
+  }
+
   let protein = 0, carbs = 0, fat = 0;
   for (const row of result.rows) {
-    const weight = Number(row.weight_grams) * Number(row.portion_scale);
+    const cw = entryCwMap.get(row.id);
+    const weight = cw && cw[row.name] !== undefined
+      ? cw[row.name]
+      : Number(row.weight_grams) * Number(row.portion_scale);
     protein += (weight / 100) * Number(row.protein_per_100g);
     carbs += (weight / 100) * Number(row.carbs_per_100g);
     fat += (weight / 100) * Number(row.fat_per_100g);

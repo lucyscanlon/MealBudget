@@ -5,19 +5,30 @@ const USER_ID = 1;
 
 export async function getDayCalories(planId: number, dayOfWeek: number): Promise<number> {
   const result = await pool.query(
-    `SELECT pe.portion_scale, i.weight_grams, i.calories_per_100g
+    `SELECT pe.id, pe.portion_scale, pe.custom_weights, i.name, i.weight_grams, i.calories_per_100g
      FROM plan_entries pe
      JOIN ingredients i ON i.meal_id = pe.meal_id
      WHERE pe.plan_id = $1 AND pe.day_of_week = $2 AND (pe.is_takeaway IS NULL OR pe.is_takeaway = false)`,
     [planId, dayOfWeek]
   );
 
+  // Group rows by entry id so we can look up custom_weights per entry
+  const entryCwMap = new Map<number, Record<string, number>>();
+  for (const row of result.rows) {
+    if (row.custom_weights && !entryCwMap.has(row.id)) {
+      const cw: Record<string, number> = {};
+      for (const item of row.custom_weights) cw[item.name] = item.grams;
+      entryCwMap.set(row.id, cw);
+    }
+  }
+
   let total = 0;
   for (const row of result.rows) {
-    const scale = Number(row.portion_scale);
-    const weight = Number(row.weight_grams) * scale;
-    const cals = (weight / 100) * Number(row.calories_per_100g);
-    total += cals;
+    const cw = entryCwMap.get(row.id);
+    const weight = cw && cw[row.name] !== undefined
+      ? cw[row.name]
+      : Number(row.weight_grams) * Number(row.portion_scale);
+    total += (weight / 100) * Number(row.calories_per_100g);
   }
   return total;
 }
