@@ -28,7 +28,9 @@ function ingParams(mealId: number | string, ing: any) {
 
 router.get('/', async (_req, res) => {
   const meals = await pool.query(
-    'SELECT id, name, photo_url, photo_data, tags, is_favourite, recipe_url, recipe_notes FROM meals WHERE user_id = $1 ORDER BY is_favourite DESC, created_at DESC',
+    `SELECT id, name, photo_url, tags, is_favourite, recipe_url, recipe_notes,
+      (photo_data IS NOT NULL AND photo_data != '') AS has_photo
+     FROM meals WHERE user_id = $1 ORDER BY is_favourite DESC, created_at DESC`,
     [USER_ID]
   );
 
@@ -50,7 +52,7 @@ router.get('/', async (_req, res) => {
     meals.rows.map((m) => ({
       id: m.id,
       name: m.name,
-      photoUrl: m.photo_data || m.photo_url,
+      photoUrl: m.has_photo ? `/api/meals/${m.id}/photo` : (m.photo_url || null),
       tags: m.tags || [],
       isFavourite: m.is_favourite || false,
       recipeUrl: m.recipe_url || null,
@@ -171,11 +173,24 @@ router.delete('/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+router.get('/:id/photo', async (req, res) => {
+  const result = await pool.query('SELECT photo_data FROM meals WHERE id = $1 AND user_id = $2', [req.params.id, USER_ID]);
+  const photo = result.rows[0]?.photo_data;
+  if (!photo) return res.status(404).end();
+  // photo_data is stored as data:image/jpeg;base64,<data>
+  const match = photo.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) return res.status(404).end();
+  const buf = Buffer.from(match[2], 'base64');
+  res.setHeader('Content-Type', match[1]);
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  res.send(buf);
+});
+
 router.post('/:id/photo', upload.single('photo'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
   await pool.query('UPDATE meals SET photo_data = $1 WHERE id = $2 AND user_id = $3', [base64, req.params.id, USER_ID]);
-  res.json({ photoUrl: base64 });
+  res.json({ photoUrl: `/api/meals/${req.params.id}/photo` });
 });
 
 export default router;
