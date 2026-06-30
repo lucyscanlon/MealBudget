@@ -137,15 +137,29 @@ if (menu && menu.isDayOff) {
     mealName.textColor = new Color("#ffffff");
     mealName.lineLimit = 1;
 
-    // Ingredients with weights
+    // Ingredients: ungrouped each on own line, groups as single cooked-weight line
     if (!hasTakeaway) {
       for (const meal of slot.meals) {
         if (meal.ingredients && meal.ingredients.length > 0) {
-          const ingLine = meal.ingredients.map(ing => ing.weightGrams + "g " + ing.name).join("  ·  ");
-          const ingText = card.addText(ingLine);
-          ingText.font = Font.systemFont(9);
-          ingText.textColor = new Color("#ffffff", 0.55);
-          ingText.lineLimit = 2;
+          // Collect groups (deduplicated by groupName) and ungrouped ingredients
+          const seenGroups = {};
+          const lines = [];
+          for (const ing of meal.ingredients) {
+            if (ing.groupName) {
+              if (!seenGroups[ing.groupName]) {
+                seenGroups[ing.groupName] = true;
+                const cookedWeight = ing.groupCookedWeight || "";
+                lines.push(cookedWeight ? cookedWeight + "g " + ing.groupName : ing.groupName);
+              }
+            } else {
+              lines.push(ing.weightGrams + "g " + ing.name);
+            }
+          }
+          for (const line of lines) {
+            const ingText = card.addText(line);
+            ingText.font = Font.systemFont(9);
+            ingText.textColor = new Color("#ffffff", 0.55);
+          }
         }
       }
     }
