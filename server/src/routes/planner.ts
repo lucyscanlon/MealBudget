@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import pool from '../db.js';
-import { getDayCalories, getBudget, calcStatus } from '../services/budgetService.js';
+import { getDayCaloriesAndVeg, getBudget, calcStatus } from '../services/budgetService.js';
 import { adjustMealPortion } from '../services/adjustService.js';
 
 const router = Router();
@@ -18,7 +18,7 @@ router.get('/:weekStart', async (req, res) => {
 
   const entries = await pool.query(
     `SELECT pe.id, pe.meal_id, pe.day_of_week, pe.slot, pe.portion_scale, pe.sort_order, pe.is_takeaway, pe.custom_weights,
-            m.name as meal_name, (m.photo_data IS NOT NULL AND m.photo_data != '') AS has_photo, m.photo_url
+            m.name as meal_name, m.tags as meal_tags, (m.photo_data IS NOT NULL AND m.photo_data != '') AS has_photo, m.photo_url
      FROM plan_entries pe
      JOIN meals m ON m.id = pe.meal_id
      WHERE pe.plan_id = $1
@@ -69,6 +69,7 @@ router.get('/:weekStart', async (req, res) => {
           meal: {
             id: e.meal_id,
             name: e.is_takeaway ? 'Takeaway' : e.meal_name,
+            tags: e.meal_tags || [],
             photoUrl: e.has_photo ? `/api/meals/${e.meal_id}/photo` : (e.photo_url || null),
             ingredients: e.is_takeaway ? [] : (ingredientsByMeal[e.meal_id] || []).map((ing: any) => ({
               ...ing,
@@ -86,15 +87,16 @@ router.get('/:weekStart', async (req, res) => {
         };
       });
 
-    // Don't count takeaway entries or day-off days toward budget
-    const totalCals = isDayOff ? 0 : await getDayCalories(planId, d);
-    const ratio = budget > 0 ? totalCals / budget : 0;
+    // Veg calories increase the effective budget rather than counting against it
+    const { consumed, vegBonus } = isDayOff ? { consumed: 0, vegBonus: 0 } : await getDayCaloriesAndVeg(planId, d);
+    const effectiveBudget = budget + vegBonus;
+    const ratio = effectiveBudget > 0 ? consumed / effectiveBudget : 0;
 
     days.push({
       dayOfWeek: d,
       entries: dayEntries,
       budgetRatio: Math.round(ratio * 100) / 100,
-      status: isDayOff ? 'green' as const : calcStatus(totalCals, budget),
+      status: isDayOff ? 'green' as const : calcStatus(consumed, effectiveBudget),
       isDayOff,
       dayOffNote: dayOffMap.get(d) || null,
     });
@@ -280,8 +282,8 @@ router.get('/:weekStart/:day/calories', async (req, res) => {
   const plan = await pool.query('SELECT id FROM weekly_plans WHERE user_id = $1 AND week_start = $2', [USER_ID, weekStart]);
   if (plan.rows.length === 0) return res.json({ totalCalories: 0 });
 
-  const totalCalories = Math.round(await getDayCalories(plan.rows[0].id, dayOfWeek));
-  res.json({ totalCalories });
+  const { consumed } = await getDayCaloriesAndVeg(plan.rows[0].id, dayOfWeek);
+  res.json({ totalCalories: Math.round(consumed) });
 });
 
 export default router;

@@ -2,7 +2,7 @@ export interface Meal {
   id: number;
   name: string;
   photoUrl: string | null;
-  tags: MealSlot[];
+  tags: MealTag[];
   isFavourite: boolean;
   recipeUrl: string | null;
   recipeNotes: string | null;
@@ -36,8 +36,10 @@ export interface PlanEntry {
 }
 
 export type MealSlot = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'dessert';
+export type MealTag = MealSlot | 'fruit_veg';
 
 export const MEAL_SLOTS: MealSlot[] = ['breakfast', 'lunch', 'dinner', 'dessert', 'snack'];
+export const VEG_TAG = 'fruit_veg' as const;
 
 export type BudgetStatus = 'green' | 'amber' | 'red';
 

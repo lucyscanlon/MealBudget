@@ -3,6 +3,7 @@ import { useDroppable } from '@dnd-kit/core';
 import type { DayPlan, MealSlot, PlanEntry } from 'shared';
 import { MEAL_SLOTS } from 'shared';
 import { uploadsUrl } from '../../utils/api';
+import { VEG_TAG } from 'shared';
 
 const SLOT_LABELS: Record<MealSlot, string> = {
   breakfast: 'Breakfast',
@@ -37,6 +38,7 @@ function EntryCard({ entry, onRemove }: { entry: PlanEntry; onRemove: (id: numbe
   const [expanded, setExpanded] = useState(false);
   const isReduced = entry.portionScale !== 1 && !entry.isTakeaway;
   const pctChange = Math.round((1 - entry.portionScale) * 100);
+  const isVeg = entry.meal.tags?.includes(VEG_TAG);
 
   if (entry.isTakeaway) {
     return (
@@ -61,8 +63,10 @@ function EntryCard({ entry, onRemove }: { entry: PlanEntry; onRemove: (id: numbe
 
   return (
     <div style={{
-      borderRadius: 3, background: 'var(--bg)',
-      border: '2px solid var(--border)', marginBottom: 3, fontSize: 13,
+      borderRadius: 3,
+      background: isVeg ? 'var(--foam)' : 'var(--bg)',
+      border: `2px solid ${isVeg ? 'var(--mint)' : 'var(--border)'}`,
+      marginBottom: 3, fontSize: 13,
     }}>
       <div
         style={{
@@ -80,6 +84,14 @@ function EntryCard({ entry, onRemove }: { entry: PlanEntry; onRemove: (id: numbe
             </div>
           )}
           <span style={{ fontWeight: 500 }}>{entry.meal.name}</span>
+          {isVeg && (
+            <span style={{
+              fontSize: 10, fontWeight: 600, color: 'var(--forest)',
+              background: 'var(--foam)', padding: '1px 5px', borderRadius: 3,
+            }}>
+              🥦 Free
+            </span>
+          )}
           {isReduced && (
             <span style={{
               fontSize: 10, fontWeight: 600, color: 'var(--red)',

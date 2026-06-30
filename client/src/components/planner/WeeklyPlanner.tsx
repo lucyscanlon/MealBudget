@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { DndContext, DragOverlay, closestCenter, type DragStartEvent, type DragEndEvent, useDraggable } from '@dnd-kit/core';
 import { api, uploadsUrl } from '../../utils/api';
 import type { Meal, WeekPlan, MacroBreakdown, MealSlot } from 'shared';
-import { MEAL_SLOTS } from 'shared';
+import { MEAL_SLOTS, VEG_TAG } from 'shared';
 import AdjustModal from './AdjustModal';
 import DayColumn from './DayColumn';
 
@@ -144,6 +144,28 @@ export default function WeeklyPlanner() {
                 </div>
               );
             })()}
+            {/* Fruit & Veg section */}
+            {(() => {
+              const vegMeals = meals.filter((m) => m.tags.includes(VEG_TAG));
+              if (vegMeals.length === 0) return null;
+              return (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{
+                    fontSize: 11, fontWeight: 500, color: 'var(--sage)',
+                    textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6,
+                    display: 'flex', alignItems: 'center', gap: 4,
+                  }}>
+                    🥦 Fruit & Veg
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {vegMeals.map((meal) => (
+                      <DraggableMeal key={`veg-${meal.id}`} meal={meal} isVeg />
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             {meals.length === 0 && (
               <p style={{ fontSize: 13, color: 'var(--text-light)' }}>
                 Add meals first
@@ -310,7 +332,7 @@ export default function WeeklyPlanner() {
   );
 }
 
-function DraggableMeal({ meal }: { meal: Meal }) {
+function DraggableMeal({ meal, isVeg }: { meal: Meal; isVeg?: boolean }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: String(meal.id) });
 
   return (
@@ -320,8 +342,8 @@ function DraggableMeal({ meal }: { meal: Meal }) {
       {...attributes}
       style={{
         padding: '6px 10px', borderRadius: 'var(--radius-sm)',
-        border: `1px solid ${meal.isFavourite ? 'var(--mint)' : 'var(--border)'}`,
-        background: meal.isFavourite ? 'var(--foam)' : 'var(--bg)',
+        border: `1px solid ${isVeg ? 'var(--mint)' : meal.isFavourite ? 'var(--mint)' : 'var(--border)'}`,
+        background: isVeg ? 'var(--foam)' : meal.isFavourite ? 'var(--foam)' : 'var(--bg)',
         cursor: 'grab', opacity: isDragging ? 0.4 : 1,
         touchAction: 'none', fontSize: 13,
       }}

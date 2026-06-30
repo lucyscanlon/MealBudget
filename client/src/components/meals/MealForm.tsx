@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../utils/api';
-import { MEAL_SLOTS, type MealSlot } from 'shared';
+import { MEAL_SLOTS, VEG_TAG, type MealTag } from 'shared';
 import BarcodeScanner from './BarcodeScanner';
 import IngredientSearch from './IngredientSearch';
 
-const TAG_LABELS: Record<MealSlot, string> = {
+const TAG_LABELS: Record<MealTag, string> = {
   breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', dessert: 'Dessert', snack: 'Snack',
+  fruit_veg: '🥦 Fruit & Veg',
 };
 
 interface IngredientInput {
@@ -33,7 +34,7 @@ const emptyIngredient = (): IngredientInput => ({
 
 export default function MealForm({ onSaved, onCancel, editMeal }: Props) {
   const [name, setName] = useState(editMeal?.name || '');
-  const [tags, setTags] = useState<MealSlot[]>(editMeal?.tags || []);
+  const [tags, setTags] = useState<MealTag[]>(editMeal?.tags || []);
   const [recipeUrl, setRecipeUrl] = useState(editMeal?.recipeUrl || '');
   const [recipeNotes, setRecipeNotes] = useState(editMeal?.recipeNotes || '');
   const [showRecipe, setShowRecipe] = useState(!!(editMeal?.recipeUrl || editMeal?.recipeNotes));
@@ -132,7 +133,7 @@ export default function MealForm({ onSaved, onCancel, editMeal }: Props) {
       }}>
         Meal type
       </div>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
         {MEAL_SLOTS.map((slot) => {
           const active = tags.includes(slot);
           return (
@@ -152,6 +153,31 @@ export default function MealForm({ onSaved, onCancel, editMeal }: Props) {
           );
         })}
       </div>
+      {/* Fruit & Veg — separate section with explanation */}
+      {(() => {
+        const isVeg = tags.includes(VEG_TAG);
+        return (
+          <div style={{ marginBottom: 20 }}>
+            <button
+              onClick={() => setTags((prev) => isVeg ? prev.filter((t) => t !== VEG_TAG) : [...prev, VEG_TAG])}
+              style={{
+                padding: '4px 12px', fontSize: 13,
+                border: `1px solid ${isVeg ? 'var(--mint)' : 'var(--border)'}`,
+                background: isVeg ? 'var(--foam)' : 'var(--bg)',
+                color: isVeg ? 'var(--forest)' : 'var(--text-light)',
+                fontWeight: isVeg ? 600 : 400,
+              }}
+            >
+              {TAG_LABELS[VEG_TAG]}
+            </button>
+            {isVeg && (
+              <p style={{ fontSize: 11, color: 'var(--sage)', marginTop: 5 }}>
+                Calories from this meal will be added to your daily budget, not counted against it.
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       <div style={{
         fontSize: 11, fontWeight: 500, color: 'var(--text-light)',
